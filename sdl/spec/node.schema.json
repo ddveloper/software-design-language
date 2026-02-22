@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-design-language/spec/node.schema.json",
+  "title": "SDL Node",
+  "description": "A Node represents anything that exists in a system — a microservice, database, gateway, external API, actor, or any other addressable entity.",
+  "type": "object",
+  "required": ["id", "kind", "label"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this node. Used to reference this node in edges, triggers, and flows.",
+      "pattern": "^[a-z0-9-_]+$",
+      "examples": ["order-service", "postgres-db", "api-gateway"]
+    },
+    "kind": {
+      "description": "The category of this node. Standard kinds are provided in the SDL stdlib. Custom kinds are allowed.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "microservice",
+            "monolith",
+            "serverless-function",
+            "database",
+            "cache",
+            "message-queue",
+            "message-broker",
+            "gateway",
+            "load-balancer",
+            "cdn",
+            "object-storage",
+            "identity-provider",
+            "external-api",
+            "frontend",
+            "mobile-app",
+            "cli",
+            "actor",
+            "scheduler",
+            "data-pipeline",
+            "ml-model",
+            "custom"
+          ]
+        },
+        {
+          "type": "string",
+          "description": "Custom kind — use when no standard kind fits. Prefix with your namespace, e.g. 'acme:iot-device'."
+        }
+      ],
+      "examples": ["microservice", "database", "actor"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable display name for this node.",
+      "examples": ["Order Service", "PostgreSQL", "End User"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional longer description of what this node is and why it exists."
+    },
+    "responsibilities": {
+      "type": "array",
+      "description": "What this node is responsible for. Write in plain language — these are design intent, not code docs.",
+      "items": { "type": "string" },
+      "examples": [["Create orders", "Track order state", "Emit order lifecycle events"]]
+    },
+    "exposes": {
+      "type": "array",
+      "description": "Capabilities or interfaces this node exposes to other nodes. Use protocol-prefixed notation.",
+      "items": {
+        "type": "string",
+        "examples": [
+          "rest:POST /orders",
+          "rest:GET /orders/{id}",
+          "grpc:OrderService/CreateOrder",
+          "event:order.created",
+          "graphql:Query.orders"
+        ]
+      }
+    },
+    "consumes": {
+      "type": "array",
+      "description": "Interfaces or events this node consumes from other nodes.",
+      "items": { "type": "string" },
+      "examples": [["event:payment.completed", "event:inventory.reserved"]]
+    },
+    "technology": {
+      "type": "object",
+      "description": "Optional technology hints. Informational only — SDL does not enforce or validate these.",
+      "properties": {
+        "language": { "type": "string", "examples": ["TypeScript", "Go", "Python"] },
+        "framework": { "type": "string", "examples": ["Express", "FastAPI", "Spring Boot"] },
+        "runtime": { "type": "string", "examples": ["Node 20", "JVM 21", "Python 3.12"] },
+        "platform": { "type": "string", "examples": ["AWS Lambda", "Kubernetes", "Heroku"] }
+      },
+      "additionalProperties": false
+    },
+    "contracts": {
+      "type": "array",
+      "description": "Links to external contract definitions (OpenAPI, Protobuf, Avro, GraphQL schema, etc.). SDL references these — it does not replace them.",
+      "items": {
+        "type": "object",
+        "required": ["type", "ref"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["openapi", "protobuf", "avro", "graphql", "asyncapi", "custom"]
+          },
+          "ref": {
+            "type": "string",
+            "description": "Path or URL to the contract file.",
+            "examples": ["./contracts/order-service.openapi.yaml", "https://example.com/schemas/order.proto"]
+          },
+          "description": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tags": {
+      "type": "array",
+      "description": "Arbitrary tags for grouping, filtering, or ownership. Use consistently across your SDL files.",
+      "items": { "type": "string" },
+      "examples": [["core-domain", "team-checkout", "pii-data"]]
+    },
+    "meta": {
+      "type": "object",
+      "description": "Arbitrary key-value pairs for project-specific metadata not covered by the SDL spec.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "id": "order-service",
+      "kind": "microservice",
+      "label": "Order Service",
+      "description": "Owns the full order lifecycle from creation through fulfillment.",
+      "responsibilities": [
+        "Create and validate orders",
+        "Track order state transitions",
+        "Emit order lifecycle events"
+      ],
+      "exposes": [
+        "rest:POST /orders",
+        "rest:GET /orders/{id}",
+        "event:order.created",
+        "event:order.cancelled"
+      ],
+      "consumes": [
+        "event:payment.completed",
+        "event:inventory.reserved"
+      ],
+      "technology": {
+        "language": "TypeScript",
+        "framework": "Express",
+        "platform": "Kubernetes"
+      },
+      "contracts": [
+        { "type": "openapi", "ref": "./contracts/order-service.openapi.yaml" }
+      ],
+      "tags": ["core-domain", "team-checkout"]
+    },
+    {
+      "id": "end-user",
+      "kind": "actor",
+      "label": "End User",
+      "description": "A human user interacting with the system through the web or mobile frontend.",
+      "tags": ["external"]
+    }
+  ]
+}

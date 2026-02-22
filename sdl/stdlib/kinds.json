@@ -1,0 +1,679 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SDL Standard Library — Kinds",
+  "description": "The standard vocabulary of kinds for SDL Nodes, Edge protocols, and Triggers. Renderers, validators, and AI tools use this file to understand the meaning and visual representation of each kind. Custom kinds are always allowed — this file defines the common baseline.",
+  "version": "0.1.0",
+
+  "node_kinds": {
+
+    "_comment": "Node kinds describe what a thing IS in a system. Each kind carries metadata for documentation, rendering, and AI context.",
+
+    "microservice": {
+      "label": "Microservice",
+      "category": "compute",
+      "description": "A small, independently deployable service that owns a bounded slice of business logic and its own data store. Communicates with other services over the network.",
+      "examples": ["Order Service", "User Service", "Notification Service"],
+      "typical_protocols": ["rest", "grpc", "kafka", "rabbitmq"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "box",
+        "color_hint": "blue"
+      },
+      "ai_hint": "A microservice is a bounded context with its own deployment lifecycle. It should own its data and not share databases with other microservices."
+    },
+
+    "monolith": {
+      "label": "Monolith",
+      "category": "compute",
+      "description": "A single deployable application that handles multiple business domains. All modules share the same process and often the same database.",
+      "examples": ["Rails App", "Django Monolith", "Legacy Backend"],
+      "typical_protocols": ["rest", "graphql", "database"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "layers",
+        "color_hint": "gray"
+      },
+      "ai_hint": "A monolith is a single deployable unit. It may still have internal module boundaries, but these are not enforced at the network level."
+    },
+
+    "serverless-function": {
+      "label": "Serverless Function",
+      "category": "compute",
+      "description": "A stateless, event-driven compute unit that scales to zero. Invoked on demand by triggers or other services. No persistent runtime between invocations.",
+      "examples": ["Image Resize Lambda", "Webhook Handler", "Scheduled Job"],
+      "typical_protocols": ["rest", "event", "sqs", "pubsub"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "zap",
+        "color_hint": "yellow"
+      },
+      "ai_hint": "Serverless functions are stateless and ephemeral. They cannot hold in-memory state between invocations. Good for short-lived, event-driven work."
+    },
+
+    "database": {
+      "label": "Database",
+      "category": "storage",
+      "description": "A persistent, structured data store. Covers relational (PostgreSQL, MySQL), document (MongoDB), wide-column (Cassandra), and other storage paradigms.",
+      "examples": ["PostgreSQL", "MongoDB", "DynamoDB", "MySQL"],
+      "typical_protocols": ["database"],
+      "render": {
+        "shape": "cylinder",
+        "icon": "database",
+        "color_hint": "green"
+      },
+      "ai_hint": "A database owns persistent state. In a microservices architecture, each database should be private to one service. Shared databases between services are an anti-pattern."
+    },
+
+    "cache": {
+      "label": "Cache",
+      "category": "storage",
+      "description": "A fast, ephemeral in-memory or near-memory store used to reduce latency and database load. Data may be evicted. Not a source of truth.",
+      "examples": ["Redis", "Memcached", "ElastiCache"],
+      "typical_protocols": ["database", "tcp"],
+      "render": {
+        "shape": "cylinder",
+        "icon": "clock",
+        "color_hint": "orange"
+      },
+      "ai_hint": "A cache stores data that can be derived or re-fetched. It should never be the only copy of important data. TTL and eviction policies matter."
+    },
+
+    "object-storage": {
+      "label": "Object Storage",
+      "category": "storage",
+      "description": "A scalable store for unstructured binary objects — files, images, videos, backups. Accessed via a key, not queried.",
+      "examples": ["AWS S3", "Google Cloud Storage", "Azure Blob Storage", "MinIO"],
+      "typical_protocols": ["rest", "filesystem"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "hard-drive",
+        "color_hint": "green"
+      },
+      "ai_hint": "Object storage is optimized for storing and retrieving large blobs by key. It is not a database — it cannot be queried or indexed natively."
+    },
+
+    "message-queue": {
+      "label": "Message Queue",
+      "category": "messaging",
+      "description": "A point-to-point buffer that decouples producers from consumers. Messages are consumed once. Supports load leveling and async processing.",
+      "examples": ["AWS SQS", "RabbitMQ Queue", "ActiveMQ"],
+      "typical_protocols": ["sqs", "rabbitmq", "nats"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "list",
+        "color_hint": "purple"
+      },
+      "ai_hint": "A message queue delivers each message to exactly one consumer. Use for task distribution and workload buffering. Contrast with message-broker for pub/sub fan-out."
+    },
+
+    "message-broker": {
+      "label": "Message Broker",
+      "category": "messaging",
+      "description": "A pub/sub or streaming hub that routes messages from producers to multiple consumers via topics. Supports fan-out, replay, and event streaming.",
+      "examples": ["Apache Kafka", "Google Pub/Sub", "AWS EventBridge", "RabbitMQ Exchange"],
+      "typical_protocols": ["kafka", "pubsub", "rabbitmq"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "share-2",
+        "color_hint": "purple"
+      },
+      "ai_hint": "A message broker enables decoupled, event-driven architectures. Multiple consumers can subscribe to the same topic. Kafka additionally supports message replay from an offset."
+    },
+
+    "gateway": {
+      "label": "API Gateway",
+      "category": "networking",
+      "description": "The entry point to a backend system. Handles cross-cutting concerns: authentication, rate limiting, routing, SSL termination, and sometimes transformation.",
+      "examples": ["AWS API Gateway", "Kong", "Nginx", "Traefik", "Custom BFF"],
+      "typical_protocols": ["rest", "graphql", "grpc", "websocket"],
+      "render": {
+        "shape": "diamond",
+        "icon": "shield",
+        "color_hint": "blue"
+      },
+      "ai_hint": "A gateway is the front door of a system. Clients should not call backend services directly. The gateway enforces policies before traffic reaches services."
+    },
+
+    "load-balancer": {
+      "label": "Load Balancer",
+      "category": "networking",
+      "description": "Distributes incoming traffic across multiple instances of a service to ensure availability and scalability.",
+      "examples": ["AWS ALB", "HAProxy", "Nginx", "GCP Load Balancer"],
+      "typical_protocols": ["tcp", "rest"],
+      "render": {
+        "shape": "diamond",
+        "icon": "sliders",
+        "color_hint": "blue"
+      },
+      "ai_hint": "A load balancer operates at the traffic level, not the business logic level. It is infrastructure, not application code."
+    },
+
+    "cdn": {
+      "label": "CDN",
+      "category": "networking",
+      "description": "A globally distributed network of edge caches that delivers static assets and cached responses with low latency.",
+      "examples": ["CloudFront", "Fastly", "Cloudflare", "Akamai"],
+      "typical_protocols": ["rest"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "globe",
+        "color_hint": "blue"
+      },
+      "ai_hint": "A CDN is appropriate for static assets, images, and highly cacheable API responses. It should not be used for personalized or real-time data."
+    },
+
+    "identity-provider": {
+      "label": "Identity Provider",
+      "category": "security",
+      "description": "Manages authentication and identity. Issues tokens (JWT, SAML) that downstream services can verify. May also handle authorization (OAuth2 scopes, roles).",
+      "examples": ["Auth0", "Okta", "AWS Cognito", "Keycloak", "Custom Auth Service"],
+      "typical_protocols": ["rest", "grpc"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "lock",
+        "color_hint": "red"
+      },
+      "ai_hint": "An identity provider is the source of truth for who a user is. Services should verify tokens issued by the IDP rather than implementing their own auth logic."
+    },
+
+    "external-api": {
+      "label": "External API",
+      "category": "external",
+      "description": "A third-party API outside the system boundary. Your system calls it, but does not own it. Treated as a dependency with its own reliability characteristics.",
+      "examples": ["Stripe", "Twilio", "SendGrid", "Google Maps API", "GitHub API"],
+      "typical_protocols": ["rest", "grpc", "graphql"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "cloud",
+        "color_hint": "gray"
+      },
+      "ai_hint": "External APIs are outside your control. Always wrap them with error handling, timeouts, and circuit breakers. Model them explicitly so failure modes are visible in flows."
+    },
+
+    "frontend": {
+      "label": "Frontend",
+      "category": "client",
+      "description": "A browser-based web application. Renders UI and communicates with backend services via APIs.",
+      "examples": ["React App", "Vue SPA", "Next.js App", "Angular App"],
+      "typical_protocols": ["rest", "graphql", "websocket"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "monitor",
+        "color_hint": "teal"
+      },
+      "ai_hint": "A frontend runs in the user's browser. It cannot securely store secrets. Authentication tokens should be handled carefully (httpOnly cookies or short-lived JWTs)."
+    },
+
+    "mobile-app": {
+      "label": "Mobile App",
+      "category": "client",
+      "description": "A native or cross-platform mobile application running on iOS or Android.",
+      "examples": ["iOS App", "Android App", "React Native App", "Flutter App"],
+      "typical_protocols": ["rest", "graphql", "websocket"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "smartphone",
+        "color_hint": "teal"
+      },
+      "ai_hint": "A mobile app runs on a user's device outside your infrastructure. Network conditions are unreliable. Offline-first patterns and idempotent APIs matter."
+    },
+
+    "cli": {
+      "label": "CLI Tool",
+      "category": "client",
+      "description": "A command-line interface used by developers, operators, or automated scripts to interact with a system.",
+      "examples": ["Admin CLI", "Deployment Tool", "Data Migration Script"],
+      "typical_protocols": ["rest", "grpc", "database"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "terminal",
+        "color_hint": "gray"
+      },
+      "ai_hint": "A CLI is typically used by internal users or automated pipelines. It may bypass the public API gateway and connect to internal endpoints directly."
+    },
+
+    "actor": {
+      "label": "Actor",
+      "category": "external",
+      "description": "A human participant who interacts with the system. Actors are outside the system boundary — they trigger flows but are not nodes that run code.",
+      "examples": ["End User", "Admin", "Support Agent", "External Partner"],
+      "typical_protocols": [],
+      "render": {
+        "shape": "person",
+        "icon": "user",
+        "color_hint": "gray"
+      },
+      "ai_hint": "Actors represent humans in the system. They do not process data — they initiate flows. Use actors as the source of user-interaction triggers."
+    },
+
+    "scheduler": {
+      "label": "Scheduler",
+      "category": "compute",
+      "description": "A system that triggers work on a time-based schedule. May be an external managed service or an internal component.",
+      "examples": ["AWS EventBridge Scheduler", "Kubernetes CronJob", "Celery Beat", "Quartz"],
+      "typical_protocols": ["event", "sqs"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "clock",
+        "color_hint": "yellow"
+      },
+      "ai_hint": "A scheduler is the source of 'scheduled' triggers. It does not own business logic — it fires events or messages that other services act on."
+    },
+
+    "data-pipeline": {
+      "label": "Data Pipeline",
+      "category": "data",
+      "description": "A system for moving, transforming, and loading data between stores at scale. Typically batch or streaming.",
+      "examples": ["Apache Spark job", "Airflow DAG", "dbt model", "Flink job", "Fivetran sync"],
+      "typical_protocols": ["database", "kafka", "filesystem"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "filter",
+        "color_hint": "orange"
+      },
+      "ai_hint": "A data pipeline is concerned with data movement and transformation, not request-response interactions. It often runs async on a schedule or in response to new data arriving."
+    },
+
+    "ml-model": {
+      "label": "ML Model / Inference Service",
+      "category": "compute",
+      "description": "A machine learning model served as an inference endpoint. Takes structured input and returns predictions, classifications, embeddings, or generated content.",
+      "examples": ["Recommendation Model", "Fraud Detection Model", "LLM API", "Image Classifier"],
+      "typical_protocols": ["rest", "grpc"],
+      "render": {
+        "shape": "rectangle",
+        "icon": "cpu",
+        "color_hint": "purple"
+      },
+      "ai_hint": "An ML model is a stateless function that maps inputs to predictions. It does not own business state. Treat it like an external API — it can fail, drift, or return unexpected results."
+    },
+
+    "custom": {
+      "label": "Custom",
+      "category": "custom",
+      "description": "A node that does not fit any standard kind. Use the 'kind' field with a namespace prefix for custom kinds (e.g. 'acme:iot-device'). The custom entry is a fallback for rendering.",
+      "examples": [],
+      "typical_protocols": [],
+      "render": {
+        "shape": "rectangle",
+        "icon": "box",
+        "color_hint": "gray"
+      },
+      "ai_hint": "When a kind is not in the SDL stdlib, treat it as a generic compute or storage node. Rely on the node's responsibilities and exposes fields for context."
+    }
+  },
+
+  "edge_protocols": {
+
+    "_comment": "Edge protocols describe HOW two nodes communicate. Each protocol carries metadata about its nature, typical use, and rendering.",
+
+    "rest": {
+      "label": "REST / HTTP",
+      "category": "request-response",
+      "description": "Synchronous HTTP-based communication. The caller sends a request and waits for a response. The most common protocol for service-to-service and client-to-server communication.",
+      "style": "sync",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "solid",
+        "arrow": "open",
+        "color_hint": "blue"
+      },
+      "ai_hint": "REST is synchronous and stateless. The caller blocks until a response arrives. Model failure modes: timeouts, 4xx, 5xx. Consider idempotency for POST/PUT."
+    },
+
+    "grpc": {
+      "label": "gRPC",
+      "category": "request-response",
+      "description": "High-performance RPC framework using HTTP/2 and Protocol Buffers. Supports unary, server-streaming, client-streaming, and bidirectional streaming.",
+      "style": "sync",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "solid",
+        "arrow": "open",
+        "color_hint": "blue"
+      },
+      "ai_hint": "gRPC is preferred over REST for internal service-to-service communication where performance matters. Contracts are defined in .proto files and are strongly typed."
+    },
+
+    "graphql": {
+      "label": "GraphQL",
+      "category": "request-response",
+      "description": "A query language for APIs. Clients specify exactly the data they need. Typically used for client-facing APIs where flexibility matters.",
+      "style": "sync",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "solid",
+        "arrow": "open",
+        "color_hint": "pink"
+      },
+      "ai_hint": "GraphQL reduces over-fetching and under-fetching. It adds complexity on the server side. Subscriptions provide real-time capabilities over WebSocket."
+    },
+
+    "websocket": {
+      "label": "WebSocket",
+      "category": "streaming",
+      "description": "A persistent, full-duplex TCP connection between client and server. Enables real-time push from server to client and vice versa.",
+      "style": "async",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "bidirectional",
+        "color_hint": "teal"
+      },
+      "ai_hint": "WebSocket is appropriate for real-time features: live updates, chat, collaborative editing, live dashboards. It requires connection state management on the server."
+    },
+
+    "kafka": {
+      "label": "Kafka",
+      "category": "event-streaming",
+      "description": "A distributed, durable event streaming platform. Producers publish to topics; multiple consumers can read independently. Supports message replay from an offset.",
+      "style": "async",
+      "delivery_guarantee": "at-least-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "purple"
+      },
+      "ai_hint": "Kafka is suitable for high-throughput event streaming and event sourcing. Consumer groups provide independent consumption. Messages are retained for a configurable period, enabling replay."
+    },
+
+    "rabbitmq": {
+      "label": "RabbitMQ",
+      "category": "messaging",
+      "description": "A message broker supporting multiple messaging patterns: point-to-point queues, pub/sub via exchanges, and routing via bindings.",
+      "style": "async",
+      "delivery_guarantee": "at-least-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "orange"
+      },
+      "ai_hint": "RabbitMQ is flexible but operationally complex. Messages are typically not replayable once consumed. Appropriate for task queues, fanout, and complex routing patterns."
+    },
+
+    "sqs": {
+      "label": "AWS SQS",
+      "category": "messaging",
+      "description": "A managed point-to-point message queue on AWS. Supports standard (at-least-once, best-effort ordering) and FIFO (exactly-once, strict ordering) queues.",
+      "style": "async",
+      "delivery_guarantee": "at-least-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "orange"
+      },
+      "ai_hint": "SQS is a fully managed queue. Messages are consumed once (or move to a dead-letter queue). FIFO queues provide ordering but have lower throughput."
+    },
+
+    "pubsub": {
+      "label": "Google Pub/Sub",
+      "category": "event-streaming",
+      "description": "A managed pub/sub messaging service on Google Cloud. Supports push and pull delivery. Messages are retained until acknowledged.",
+      "style": "async",
+      "delivery_guarantee": "at-least-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "purple"
+      },
+      "ai_hint": "Pub/Sub is GCP's managed event streaming service. Subscribers are independent — each gets its own copy of messages. Similar in model to Kafka topics."
+    },
+
+    "nats": {
+      "label": "NATS",
+      "category": "messaging",
+      "description": "A lightweight, high-performance cloud-native messaging system. Supports pub/sub, request/reply, and persistent streams (JetStream).",
+      "style": "async",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "purple"
+      },
+      "ai_hint": "Core NATS is fire-and-forget (at-most-once). NATS JetStream adds persistence and at-least-once delivery. Very low latency, suited for high-frequency messaging."
+    },
+
+    "tcp": {
+      "label": "TCP",
+      "category": "low-level",
+      "description": "A raw TCP connection. Used when higher-level protocols are not appropriate — low-level networking, custom binary protocols, or legacy integrations.",
+      "style": "sync",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "solid",
+        "arrow": "open",
+        "color_hint": "gray"
+      },
+      "ai_hint": "TCP ensures ordered, reliable byte delivery but provides no message framing or protocol semantics. Used for custom protocols or when maximum control is needed."
+    },
+
+    "udp": {
+      "label": "UDP",
+      "category": "low-level",
+      "description": "A connectionless, unreliable datagram protocol. No guaranteed delivery or ordering. Used where latency matters more than reliability.",
+      "style": "async",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "dotted",
+        "arrow": "open",
+        "color_hint": "gray"
+      },
+      "ai_hint": "UDP is appropriate for real-time use cases where dropped packets are acceptable: video streaming, gaming, telemetry, DNS. Not suitable for financial or transactional data."
+    },
+
+    "smtp": {
+      "label": "SMTP / Email",
+      "category": "notification",
+      "description": "Simple Mail Transfer Protocol. Used to deliver email. Typically used via a managed provider (SendGrid, SES, Mailgun) rather than a raw SMTP server.",
+      "style": "async",
+      "delivery_guarantee": "at-most-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "gray"
+      },
+      "ai_hint": "Email delivery is best-effort. Delivery, open, and bounce rates vary. Prefer a managed transactional email provider over running your own SMTP server."
+    },
+
+    "database": {
+      "label": "Database Connection",
+      "category": "storage",
+      "description": "A direct connection from a service to a database. Typically a persistent connection pool. Not a network protocol per se — models the data access relationship between a service and its store.",
+      "style": "sync",
+      "delivery_guarantee": "exactly-once",
+      "render": {
+        "line": "solid",
+        "arrow": "bidirectional",
+        "color_hint": "green"
+      },
+      "ai_hint": "A database connection edge should connect one service to one database. Multiple services sharing a database is an anti-pattern in microservice architectures."
+    },
+
+    "filesystem": {
+      "label": "Filesystem",
+      "category": "storage",
+      "description": "Communication via shared filesystem or file drop. One node writes files; another reads them. Common in batch processing, legacy integrations, and data pipelines.",
+      "style": "async",
+      "delivery_guarantee": "at-least-once",
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "gray"
+      },
+      "ai_hint": "Filesystem-based integration is simple but couples services through shared infrastructure. File-based handoffs are fragile — consider message queues for more reliable async communication."
+    },
+
+    "shared-memory": {
+      "label": "Shared Memory",
+      "category": "low-level",
+      "description": "Inter-process communication via shared memory within the same host. Extremely fast but limits deployment flexibility — both processes must run on the same machine.",
+      "style": "sync",
+      "delivery_guarantee": "exactly-once",
+      "render": {
+        "line": "solid",
+        "arrow": "bidirectional",
+        "color_hint": "gray"
+      },
+      "ai_hint": "Shared memory is only possible when two processes run on the same host. It is not compatible with distributed or containerized deployments."
+    },
+
+    "custom": {
+      "label": "Custom Protocol",
+      "category": "custom",
+      "description": "A protocol that does not fit any standard SDL kind. Use a namespace prefix for custom protocols (e.g. 'acme:mqtt'). The custom entry is a fallback for rendering.",
+      "style": null,
+      "delivery_guarantee": null,
+      "render": {
+        "line": "dashed",
+        "arrow": "open",
+        "color_hint": "gray"
+      },
+      "ai_hint": "When a protocol is not in the SDL stdlib, use the edge's label and description to infer its characteristics."
+    }
+  },
+
+  "trigger_kinds": {
+
+    "_comment": "Trigger kinds describe WHAT initiates a flow. They determine which supplemental fields on the trigger are relevant.",
+
+    "user-interaction": {
+      "label": "User Interaction",
+      "category": "human",
+      "description": "A flow initiated by a human user's action — a click, form submission, navigation, or other gesture in a UI.",
+      "supplemental_fields": ["interaction"],
+      "render": {
+        "icon": "cursor-click",
+        "color_hint": "teal"
+      },
+      "ai_hint": "User interaction triggers represent the human entry point to a flow. They carry the user's intent and context. The actor node is usually the source."
+    },
+
+    "scheduled": {
+      "label": "Scheduled",
+      "category": "time",
+      "description": "A flow initiated by a time-based schedule — a CRON expression, interval, or calendar event. No human involvement at the time of execution.",
+      "supplemental_fields": ["schedule"],
+      "render": {
+        "icon": "clock",
+        "color_hint": "yellow"
+      },
+      "ai_hint": "Scheduled triggers fire independently of user action. They are commonly used for maintenance jobs, report generation, data sync, and cleanup tasks."
+    },
+
+    "inbound-webhook": {
+      "label": "Inbound Webhook",
+      "category": "external",
+      "description": "A flow initiated by an HTTP POST from an external service (Stripe, GitHub, Twilio, etc.) to a registered endpoint in your system.",
+      "supplemental_fields": ["webhook"],
+      "render": {
+        "icon": "arrow-down-circle",
+        "color_hint": "orange"
+      },
+      "ai_hint": "Webhooks are push notifications from external services. Always verify the payload signature before processing. Respond quickly (within seconds) and process async if the work is heavy."
+    },
+
+    "inbound-api-call": {
+      "label": "Inbound API Call",
+      "category": "external",
+      "description": "A flow initiated by a programmatic API call from an external system or partner. Similar to a webhook but initiated by the caller on demand rather than as an event notification.",
+      "supplemental_fields": [],
+      "render": {
+        "icon": "arrow-down-circle",
+        "color_hint": "blue"
+      },
+      "ai_hint": "Inbound API calls come from outside your system boundary. The caller may be a partner system, a third-party integration, or a B2B customer."
+    },
+
+    "event": {
+      "label": "Internal Event",
+      "category": "system",
+      "description": "A flow initiated by an event emitted by another part of the same system — a message published to a queue or broker that a consumer acts on.",
+      "supplemental_fields": [],
+      "render": {
+        "icon": "radio",
+        "color_hint": "purple"
+      },
+      "ai_hint": "Event triggers represent the async, reactive part of a system. They decouple producers from consumers. The trigger's source is the node that emitted the event."
+    },
+
+    "file-upload": {
+      "label": "File Upload",
+      "category": "human",
+      "description": "A flow initiated when a user or external system uploads a file — to object storage, an SFTP server, or a file drop endpoint.",
+      "supplemental_fields": ["payload"],
+      "render": {
+        "icon": "upload",
+        "color_hint": "gray"
+      },
+      "ai_hint": "File upload triggers are common in data ingestion, document processing, and media workflows. Validate file type and size early. Process asynchronously for large files."
+    },
+
+    "system-startup": {
+      "label": "System Startup",
+      "category": "system",
+      "description": "A flow that runs when a service or application starts up — initialization, cache warming, health check registration, or database migration.",
+      "supplemental_fields": [],
+      "render": {
+        "icon": "power",
+        "color_hint": "green"
+      },
+      "ai_hint": "System startup flows are not user-visible but are critical for correctness. Migrations, seed data, and connection pool initialization happen here."
+    },
+
+    "system-shutdown": {
+      "label": "System Shutdown",
+      "category": "system",
+      "description": "A flow that runs when a service receives a shutdown signal — draining in-flight requests, flushing buffers, releasing resources gracefully.",
+      "supplemental_fields": [],
+      "render": {
+        "icon": "power-off",
+        "color_hint": "red"
+      },
+      "ai_hint": "Graceful shutdown flows ensure no requests are dropped and no data is lost when a service is terminated. Kubernetes sends SIGTERM before SIGKILL."
+    },
+
+    "manual": {
+      "label": "Manual / Operator Action",
+      "category": "human",
+      "description": "A flow initiated by an operator or administrator through a direct action — a CLI command, an admin dashboard button, or a script run by a human.",
+      "supplemental_fields": [],
+      "render": {
+        "icon": "terminal",
+        "color_hint": "gray"
+      },
+      "ai_hint": "Manual triggers represent operational actions that are not automated. They're often used for one-off jobs, emergency interventions, or administrative tasks."
+    },
+
+    "custom": {
+      "label": "Custom Trigger",
+      "category": "custom",
+      "description": "A trigger that does not fit any standard SDL kind. Use a namespace prefix for custom trigger kinds (e.g. 'acme:sensor-reading').",
+      "supplemental_fields": [],
+      "render": {
+        "icon": "zap",
+        "color_hint": "gray"
+      },
+      "ai_hint": "When a trigger kind is not in the SDL stdlib, rely on the trigger's label and description to understand what initiates the flow."
+    }
+  },
+
+  "categories": {
+    "compute":          { "label": "Compute",           "description": "Nodes that run code and process requests." },
+    "storage":          { "label": "Storage",           "description": "Nodes and edges that persist or buffer data." },
+    "messaging":        { "label": "Messaging",         "description": "Nodes and edges for async message delivery." },
+    "event-streaming":  { "label": "Event Streaming",   "description": "Nodes and edges for durable, replayable event streams." },
+    "networking":       { "label": "Networking",        "description": "Infrastructure nodes that route or balance traffic." },
+    "security":         { "label": "Security",          "description": "Nodes that handle authentication and authorization." },
+    "external":         { "label": "External",          "description": "Nodes and triggers outside your system boundary." },
+    "client":           { "label": "Client",            "description": "User-facing nodes that initiate interaction." },
+    "data":             { "label": "Data",              "description": "Nodes focused on data movement and transformation." },
+    "request-response": { "label": "Request / Response","description": "Synchronous protocols where the caller waits." },
+    "streaming":        { "label": "Streaming",         "description": "Protocols supporting continuous data flow." },
+    "notification":     { "label": "Notification",      "description": "Protocols for delivering notifications." },
+    "low-level":        { "label": "Low-level",         "description": "Transport-layer protocols." },
+    "human":            { "label": "Human",             "description": "Triggers initiated by a human action." },
+    "time":             { "label": "Time",              "description": "Triggers initiated by a clock or schedule." },
+    "system":           { "label": "System",            "description": "Triggers fired by the system itself." },
+    "custom":           { "label": "Custom",            "description": "User-defined kinds not in the SDL stdlib." }
+  }
+}

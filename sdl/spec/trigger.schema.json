@@ -1,0 +1,205 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-design-language/spec/trigger.schema.json",
+  "title": "SDL Trigger",
+  "description": "A Trigger represents the initiator of a flow. It is the 'what starts this?' primitive — a CRON schedule, a user gesture, an inbound webhook, an external event, or any other stimulus that causes activity in the system.",
+  "type": "object",
+  "required": ["id", "kind", "label"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this trigger. Used to reference this trigger as the entry point of a flow.",
+      "pattern": "^[a-z0-9-_]+$",
+      "examples": ["checkout-button", "daily-report-cron", "stripe-webhook"]
+    },
+    "kind": {
+      "description": "The category of this trigger. Determines which additional fields are relevant.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "user-interaction",
+            "scheduled",
+            "inbound-webhook",
+            "inbound-api-call",
+            "event",
+            "file-upload",
+            "system-startup",
+            "system-shutdown",
+            "manual",
+            "custom"
+          ]
+        },
+        {
+          "type": "string",
+          "description": "Custom trigger kind — prefix with your namespace, e.g. 'acme:sensor-reading'."
+        }
+      ],
+      "examples": ["user-interaction", "scheduled", "inbound-webhook"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable label for this trigger.",
+      "examples": ["User clicks Checkout", "Daily Report Job", "Stripe Payment Webhook"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional longer description of what this trigger is and when it fires."
+    },
+    "source": {
+      "type": "string",
+      "description": "The id of the node (or external actor) that produces this trigger. Optional — some triggers have no identifiable SDL node as a source (e.g. a CRON scheduler external to the system).",
+      "examples": ["end-user", "stripe-api", "scheduler"]
+    },
+    "target": {
+      "type": "string",
+      "description": "The id of the node that receives this trigger — i.e. where the flow begins.",
+      "examples": ["api-gateway", "order-service", "report-worker"]
+    },
+    "schedule": {
+      "type": "object",
+      "description": "Present when kind is 'scheduled'. Describes when the trigger fires.",
+      "properties": {
+        "cron": {
+          "type": "string",
+          "description": "A cron expression.",
+          "examples": ["0 8 * * 1-5", "*/5 * * * *"]
+        },
+        "timezone": {
+          "type": "string",
+          "description": "IANA timezone for the cron schedule.",
+          "examples": ["UTC", "America/New_York", "Asia/Tokyo"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the schedule, e.g. 'Every weekday at 8am UTC'.",
+          "examples": ["Every weekday at 8am UTC", "Every 5 minutes"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "webhook": {
+      "type": "object",
+      "description": "Present when kind is 'inbound-webhook'. Describes the webhook characteristics.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "The external service that sends this webhook.",
+          "examples": ["Stripe", "GitHub", "Twilio", "Shopify"]
+        },
+        "event_type": {
+          "type": "string",
+          "description": "The event type identifier used by the provider.",
+          "examples": ["payment_intent.succeeded", "push", "message.received"]
+        },
+        "verification": {
+          "type": "string",
+          "description": "How the webhook payload is verified.",
+          "enum": ["hmac-signature", "shared-secret", "none", "custom"],
+          "examples": ["hmac-signature"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "interaction": {
+      "type": "object",
+      "description": "Present when kind is 'user-interaction'. Describes the user action.",
+      "properties": {
+        "gesture": {
+          "type": "string",
+          "description": "The type of user gesture.",
+          "enum": ["click", "submit", "navigate", "input", "gesture", "voice", "custom"]
+        },
+        "element": {
+          "type": "string",
+          "description": "The UI element involved.",
+          "examples": ["checkout-button", "search-form", "back-button"]
+        },
+        "context": {
+          "type": "string",
+          "description": "The screen or page context.",
+          "examples": ["Cart page", "Login screen", "Order confirmation"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "payload": {
+      "type": "object",
+      "description": "Optional description of the data this trigger carries when it fires.",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "What data the trigger carries, in plain language.",
+          "examples": ["Cart contents, user session token, shipping address"]
+        },
+        "schema_ref": {
+          "type": "string",
+          "description": "Optional reference to a formal schema for the payload.",
+          "examples": ["./contracts/checkout-request.schema.json"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "description": "Arbitrary tags for grouping or filtering.",
+      "items": { "type": "string" },
+      "examples": [["user-facing", "revenue-critical"], ["internal", "ops"]]
+    },
+    "meta": {
+      "type": "object",
+      "description": "Arbitrary key-value pairs for project-specific metadata not covered by the SDL spec.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "id": "checkout-button",
+      "kind": "user-interaction",
+      "label": "User Clicks Checkout",
+      "description": "Fired when an authenticated user submits the checkout form from the cart page.",
+      "source": "end-user",
+      "target": "api-gateway",
+      "interaction": {
+        "gesture": "submit",
+        "element": "checkout-form",
+        "context": "Cart page"
+      },
+      "payload": {
+        "description": "Cart contents, user session token, selected shipping address and payment method"
+      },
+      "tags": ["user-facing", "revenue-critical"]
+    },
+    {
+      "id": "daily-report-cron",
+      "kind": "scheduled",
+      "label": "Daily Sales Report Job",
+      "description": "Runs every weekday morning to generate and distribute the sales summary report.",
+      "target": "report-worker",
+      "schedule": {
+        "cron": "0 8 * * 1-5",
+        "timezone": "UTC",
+        "description": "Every weekday at 8am UTC"
+      },
+      "tags": ["internal", "reporting"]
+    },
+    {
+      "id": "stripe-payment-webhook",
+      "kind": "inbound-webhook",
+      "label": "Stripe Payment Confirmed",
+      "description": "Fired by Stripe when a payment intent succeeds. Entry point for order fulfillment.",
+      "source": "stripe-api",
+      "target": "payment-service",
+      "webhook": {
+        "provider": "Stripe",
+        "event_type": "payment_intent.succeeded",
+        "verification": "hmac-signature"
+      },
+      "payload": {
+        "description": "Stripe PaymentIntent object including amount, currency, metadata with order ID"
+      },
+      "tags": ["external", "revenue-critical"]
+    }
+  ]
+}

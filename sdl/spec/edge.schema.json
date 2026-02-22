@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-design-language/spec/edge.schema.json",
+  "title": "SDL Edge",
+  "description": "An Edge represents a possible communication channel between two nodes. Edges describe what connections exist — Flows describe when and how they are used.",
+  "type": "object",
+  "required": ["id", "protocol", "source", "target"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this edge. Used to reference this edge in flows.",
+      "pattern": "^[a-z0-9-_]+$",
+      "examples": ["gateway-to-order-rest", "order-to-kafka", "order-to-postgres"]
+    },
+    "protocol": {
+      "description": "The communication protocol used over this edge. Standard protocols are provided. Custom protocols are allowed.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "rest",
+            "grpc",
+            "graphql",
+            "websocket",
+            "kafka",
+            "rabbitmq",
+            "sqs",
+            "pubsub",
+            "nats",
+            "tcp",
+            "udp",
+            "smtp",
+            "database",
+            "filesystem",
+            "shared-memory",
+            "custom"
+          ]
+        },
+        {
+          "type": "string",
+          "description": "Custom protocol — prefix with your namespace, e.g. 'acme:mqtt'."
+        }
+      ],
+      "examples": ["rest", "kafka", "grpc"]
+    },
+    "source": {
+      "type": "string",
+      "description": "The id of the node that initiates communication over this edge.",
+      "examples": ["api-gateway", "order-service"]
+    },
+    "target": {
+      "type": "string",
+      "description": "The id of the node that receives communication over this edge.",
+      "examples": ["order-service", "postgres-db"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Optional human-readable label describing what this edge is for.",
+      "examples": ["Validate and route requests", "Persist order data"]
+    },
+    "direction": {
+      "type": "string",
+      "description": "Whether communication flows one way or both ways. Defaults to unidirectional.",
+      "enum": ["unidirectional", "bidirectional"],
+      "default": "unidirectional"
+    },
+    "style": {
+      "type": "string",
+      "description": "Whether communication is synchronous (caller waits for response) or asynchronous (fire and forget / event-driven).",
+      "enum": ["sync", "async"],
+      "examples": ["sync", "async"]
+    },
+    "auth": {
+      "type": "object",
+      "description": "Optional description of how this edge is authenticated or authorized.",
+      "properties": {
+        "mechanism": {
+          "type": "string",
+          "enum": ["none", "jwt", "api-key", "mtls", "oauth2", "basic", "custom"],
+          "examples": ["jwt", "mtls"]
+        },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "contract": {
+      "type": "object",
+      "description": "Optional link to the contract definition for this edge (OpenAPI spec, Protobuf definition, Avro schema, etc.).",
+      "required": ["type", "ref"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["openapi", "protobuf", "avro", "graphql", "asyncapi", "custom"]
+        },
+        "ref": {
+          "type": "string",
+          "description": "Path or URL to the contract file.",
+          "examples": ["./contracts/order-service.openapi.yaml#/paths/~1orders"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "reliability": {
+      "type": "object",
+      "description": "Optional reliability characteristics of this edge.",
+      "properties": {
+        "delivery": {
+          "type": "string",
+          "description": "Message delivery guarantee.",
+          "enum": ["at-most-once", "at-least-once", "exactly-once"]
+        },
+        "retry": {
+          "type": "boolean",
+          "description": "Whether retries are configured on this edge."
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "description": "Timeout in milliseconds, if applicable."
+        },
+        "circuit_breaker": {
+          "type": "boolean",
+          "description": "Whether a circuit breaker is in place."
+        }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "description": "Arbitrary tags for grouping or filtering.",
+      "items": { "type": "string" },
+      "examples": [["internal", "critical-path", "encrypted"]]
+    },
+    "meta": {
+      "type": "object",
+      "description": "Arbitrary key-value pairs for project-specific metadata not covered by the SDL spec.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "id": "gateway-to-order-rest",
+      "protocol": "rest",
+      "source": "api-gateway",
+      "target": "order-service",
+      "label": "Route authenticated order requests",
+      "direction": "bidirectional",
+      "style": "sync",
+      "auth": { "mechanism": "jwt" },
+      "contract": {
+        "type": "openapi",
+        "ref": "./contracts/order-service.openapi.yaml"
+      },
+      "reliability": {
+        "timeout_ms": 5000,
+        "circuit_breaker": true
+      },
+      "tags": ["internal", "critical-path"]
+    },
+    {
+      "id": "order-to-kafka",
+      "protocol": "kafka",
+      "source": "order-service",
+      "target": "event-bus",
+      "label": "Publish order lifecycle events",
+      "direction": "unidirectional",
+      "style": "async",
+      "reliability": {
+        "delivery": "at-least-once"
+      },
+      "tags": ["events", "core-domain"]
+    },
+    {
+      "id": "order-to-postgres",
+      "protocol": "database",
+      "source": "order-service",
+      "target": "postgres-db",
+      "label": "Read and write order data",
+      "direction": "bidirectional",
+      "style": "sync",
+      "auth": { "mechanism": "custom", "description": "Connection pool with rotating credentials via Vault" },
+      "tags": ["persistence"]
+    }
+  ]
+}

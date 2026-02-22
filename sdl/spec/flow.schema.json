@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-design-language/spec/flow.schema.json",
+  "title": "SDL Flow",
+  "description": "A Flow describes a named, ordered sequence of interactions across nodes that represents a use case, data path, or process. Flows give the static schema (nodes, edges, triggers) its meaning. A system is best understood as a collection of flows.",
+  "type": "object",
+  "required": ["id", "label", "trigger", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this flow.",
+      "pattern": "^[a-z0-9-_]+$",
+      "examples": ["place-order", "user-login", "daily-report-generation"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name for this flow. Write it as a verb phrase describing what happens.",
+      "examples": ["User Places an Order", "User Logs In", "Generate Daily Sales Report"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional explanation of this flow's purpose, scope, and any important context."
+    },
+    "trigger": {
+      "type": "string",
+      "description": "The id of the trigger that initiates this flow.",
+      "examples": ["checkout-button", "daily-report-cron", "stripe-payment-webhook"]
+    },
+    "steps": {
+      "type": "array",
+      "description": "The ordered sequence of interactions in this flow. Steps are identified by a hierarchical numbering scheme: '1.0' for sequential steps, '2.a' and '2.b' for parallel or branching steps at the same level.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "actor", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Step identifier using hierarchical numbering. Sequential steps use integer notation (1.0, 2.0, 3.0). Parallel or branching steps share the integer and use letter suffixes (2.a, 2.b). Sub-steps use deeper nesting (2.a.1, 2.a.2).",
+            "examples": ["1.0", "2.a", "2.b", "3.0", "2.a.1"]
+          },
+          "actor": {
+            "type": "string",
+            "description": "The id of the node performing the action in this step.",
+            "examples": ["api-gateway", "order-service", "postgres-db"]
+          },
+          "action": {
+            "type": "string",
+            "description": "What the actor does in this step. Write as a short verb phrase in plain language.",
+            "examples": ["authenticate request", "validate cart", "persist order", "emit order.created"]
+          },
+          "via": {
+            "type": "string",
+            "description": "The id of the edge used in this step. Required when communication between nodes occurs. Omit for internal actions (e.g. a node reading its own state).",
+            "examples": ["gateway-to-order-rest", "order-to-kafka", "order-to-postgres"]
+          },
+          "parallel": {
+            "type": "boolean",
+            "description": "When true, this step runs concurrently with other steps sharing the same integer prefix. E.g. steps 2.a and 2.b both marked parallel:true execute at the same time.",
+            "default": false
+          },
+          "condition": {
+            "type": "string",
+            "description": "Optional condition that determines whether this step executes. Write in plain language.",
+            "examples": ["Only if cart total > $0", "Only if user is authenticated", "Only if stock is available"]
+          },
+          "returns": {
+            "type": "string",
+            "description": "What this step produces or returns to the calling step, in plain language.",
+            "examples": ["Authenticated user context", "Order ID", "Confirmation event"]
+          },
+          "error": {
+            "type": "object",
+            "description": "Optional description of what happens if this step fails.",
+            "properties": {
+              "condition": {
+                "type": "string",
+                "description": "What failure looks like.",
+                "examples": ["JWT expired or invalid", "Cart item out of stock", "DB connection timeout"]
+              },
+              "handling": {
+                "type": "string",
+                "description": "How the failure is handled.",
+                "examples": ["Return 401 to client", "Return validation error with item list", "Retry 3 times then alert on-call"]
+              },
+              "goto": {
+                "type": "string",
+                "description": "Optional step id to jump to on failure. Use for explicit error flow branching.",
+                "examples": ["error-response", "retry-1.0"]
+              }
+            },
+            "additionalProperties": false
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional free-text notes about this step — design rationale, known issues, open questions."
+          }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "description": "What the system state looks like after this flow completes successfully.",
+      "properties": {
+        "success": {
+          "type": "string",
+          "description": "The happy-path outcome in plain language.",
+          "examples": ["Order is persisted, confirmation email queued, inventory reserved"]
+        },
+        "side_effects": {
+          "type": "array",
+          "description": "Observable side effects produced by this flow (events emitted, notifications sent, state changed in other systems).",
+          "items": { "type": "string" },
+          "examples": [["event:order.created emitted", "Inventory decremented", "Confirmation email queued"]]
+        }
+      },
+      "additionalProperties": false
+    },
+    "variants": {
+      "type": "array",
+      "description": "Named variants or alternative paths for this flow (e.g. guest checkout vs. authenticated checkout). Each variant references a separate flow by id.",
+      "items": {
+        "type": "object",
+        "required": ["label", "flow_ref"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Name of the variant.",
+            "examples": ["Guest Checkout", "Express Checkout with Saved Card"]
+          },
+          "flow_ref": {
+            "type": "string",
+            "description": "The id of the SDL flow that describes this variant.",
+            "examples": ["place-order-guest", "place-order-express"]
+          },
+          "condition": {
+            "type": "string",
+            "description": "When this variant applies.",
+            "examples": ["User is not authenticated", "User has a saved payment method"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tags": {
+      "type": "array",
+      "description": "Arbitrary tags for grouping or filtering flows.",
+      "items": { "type": "string" },
+      "examples": [["critical-path", "revenue", "authenticated-only"]]
+    },
+    "meta": {
+      "type": "object",
+      "description": "Arbitrary key-value pairs for project-specific metadata not covered by the SDL spec.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "id": "place-order",
+      "label": "User Places an Order",
+      "description": "The primary checkout flow for an authenticated user. Covers authentication, cart validation, inventory reservation, order persistence, and event emission.",
+      "trigger": "checkout-button",
+      "steps": [
+        {
+          "id": "1.0",
+          "actor": "api-gateway",
+          "action": "authenticate request",
+          "via": "gateway-jwt-edge",
+          "returns": "Authenticated user context",
+          "error": {
+            "condition": "JWT missing, expired, or invalid",
+            "handling": "Return 401 to client"
+          }
+        },
+        {
+          "id": "2.0",
+          "actor": "api-gateway",
+          "action": "route to order service",
+          "via": "gateway-to-order-rest"
+        },
+        {
+          "id": "3.a",
+          "actor": "order-service",
+          "action": "validate cart contents",
+          "via": "order-to-inventory-rest",
+          "parallel": true,
+          "error": {
+            "condition": "One or more items invalid or unavailable",
+            "handling": "Return 422 with item-level validation errors"
+          }
+        },
+        {
+          "id": "3.b",
+          "actor": "order-service",
+          "action": "verify payment method",
+          "via": "order-to-payment-rest",
+          "parallel": true,
+          "error": {
+            "condition": "Payment method invalid or expired",
+            "handling": "Return 422 with payment error"
+          }
+        },
+        {
+          "id": "4.0",
+          "actor": "order-service",
+          "action": "persist order",
+          "via": "order-to-postgres",
+          "returns": "Order ID"
+        },
+        {
+          "id": "5.0",
+          "actor": "order-service",
+          "action": "emit order.created event",
+          "via": "order-to-kafka",
+          "notes": "Downstream consumers: inventory-service (reserve stock), notification-service (send confirmation email)"
+        },
+        {
+          "id": "6.0",
+          "actor": "api-gateway",
+          "action": "return order confirmation to client",
+          "via": "gateway-to-order-rest",
+          "returns": "Order ID and estimated delivery date"
+        }
+      ],
+      "outcome": {
+        "success": "Order is persisted in the database with PENDING status. order.created event emitted to Kafka.",
+        "side_effects": [
+          "event:order.created emitted",
+          "Inventory reservation triggered (async)",
+          "Confirmation email queued (async)"
+        ]
+      },
+      "variants": [
+        {
+          "label": "Guest Checkout",
+          "flow_ref": "place-order-guest",
+          "condition": "User is not authenticated — proceeds without JWT, email captured at checkout"
+        }
+      ],
+      "tags": ["critical-path", "revenue", "authenticated"]
+    }
+  ]
+}
