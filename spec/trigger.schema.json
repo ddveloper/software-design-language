@@ -14,29 +14,9 @@
       "examples": ["checkout-button", "daily-report-cron", "stripe-webhook"]
     },
     "kind": {
-      "description": "The category of this trigger. Determines which additional fields are relevant.",
-      "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "user-interaction",
-            "scheduled",
-            "inbound-webhook",
-            "inbound-api-call",
-            "event",
-            "file-upload",
-            "system-startup",
-            "system-shutdown",
-            "manual",
-            "custom"
-          ]
-        },
-        {
-          "type": "string",
-          "description": "Custom trigger kind — prefix with your namespace, e.g. 'acme:sensor-reading'."
-        }
-      ],
-      "examples": ["user-interaction", "scheduled", "inbound-webhook"]
+      "type": "string",
+      "description": "The category of this trigger. Determines which supplemental fields are relevant. Standard kinds are defined in stdlib/kinds.json. Custom kinds are allowed — prefix with your namespace, e.g. 'acme:sensor-reading'.",
+      "examples": ["user-interaction", "scheduled", "inbound-webhook", "acme:sensor-reading"]
     },
     "label": {
       "type": "string",

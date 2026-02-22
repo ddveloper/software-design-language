@@ -14,35 +14,9 @@
       "examples": ["gateway-to-order-rest", "order-to-kafka", "order-to-postgres"]
     },
     "protocol": {
-      "description": "The communication protocol used over this edge. Standard protocols are provided. Custom protocols are allowed.",
-      "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "rest",
-            "grpc",
-            "graphql",
-            "websocket",
-            "kafka",
-            "rabbitmq",
-            "sqs",
-            "pubsub",
-            "nats",
-            "tcp",
-            "udp",
-            "smtp",
-            "database",
-            "filesystem",
-            "shared-memory",
-            "custom"
-          ]
-        },
-        {
-          "type": "string",
-          "description": "Custom protocol — prefix with your namespace, e.g. 'acme:mqtt'."
-        }
-      ],
-      "examples": ["rest", "kafka", "grpc"]
+      "type": "string",
+      "description": "The communication protocol used over this edge. Standard protocols are defined in stdlib/kinds.json. Custom protocols are allowed — prefix with your namespace, e.g. 'acme:mqtt'.",
+      "examples": ["rest", "kafka", "grpc", "acme:mqtt"]
     },
     "source": {
       "type": "string",

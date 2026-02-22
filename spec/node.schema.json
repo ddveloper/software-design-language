@@ -14,40 +14,9 @@
       "examples": ["order-service", "postgres-db", "api-gateway"]
     },
     "kind": {
-      "description": "The category of this node. Standard kinds are provided in the SDL stdlib. Custom kinds are allowed.",
-      "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "microservice",
-            "monolith",
-            "serverless-function",
-            "database",
-            "cache",
-            "message-queue",
-            "message-broker",
-            "gateway",
-            "load-balancer",
-            "cdn",
-            "object-storage",
-            "identity-provider",
-            "external-api",
-            "frontend",
-            "mobile-app",
-            "cli",
-            "actor",
-            "scheduler",
-            "data-pipeline",
-            "ml-model",
-            "custom"
-          ]
-        },
-        {
-          "type": "string",
-          "description": "Custom kind — use when no standard kind fits. Prefix with your namespace, e.g. 'acme:iot-device'."
-        }
-      ],
-      "examples": ["microservice", "database", "actor"]
+      "type": "string",
+      "description": "The category of this node. Standard kinds are defined in stdlib/kinds.json. Custom kinds are allowed — prefix with your namespace, e.g. 'acme:iot-device'.",
+      "examples": ["microservice", "database", "actor", "acme:iot-device"]
     },
     "label": {
       "type": "string",

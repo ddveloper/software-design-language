@@ -15,11 +15,13 @@
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { readFileSync, readdirSync, statSync } from "fs";
-import { resolve, join, basename } from "path";
+import { resolve, join, basename, dirname } from "path";
+import { fileURLToPath } from "url";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ROOT = resolve(new URL(".", import.meta.url).pathname, "..");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "..");
 
 function loadJSON(path) {
   try {
