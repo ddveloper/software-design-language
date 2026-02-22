@@ -118,6 +118,32 @@
       },
       "additionalProperties": false
     },
+    "continues_async": {
+      "type": "array",
+      "description": "One or more flows that this flow spawns asynchronously — typically by emitting an event or message that another flow is triggered by. This makes cross-flow async continuations explicit and navigable. Each entry names the event or message that bridges the two flows.",
+      "items": {
+        "type": "object",
+        "required": ["flow_ref", "via_event"],
+        "additionalProperties": false,
+        "properties": {
+          "flow_ref": {
+            "type": "string",
+            "description": "The id of the flow that continues asynchronously from this one.",
+            "examples": ["order-fulfilment", "payment-failure"]
+          },
+          "via_event": {
+            "type": "string",
+            "description": "The event, message, or trigger that bridges this flow to the next. Write in plain language or use event notation.",
+            "examples": ["event:order.created", "stripe-payment-success webhook", "event:payment.completed"]
+          },
+          "condition": {
+            "type": "string",
+            "description": "Optional condition under which this async continuation fires.",
+            "examples": ["Only if payment succeeds", "Only if stock reservation fails"]
+          }
+        }
+      }
+    },
     "variants": {
       "type": "array",
       "description": "Named variants or alternative paths for this flow (e.g. guest checkout vs. authenticated checkout). Each variant references a separate flow by id.",
