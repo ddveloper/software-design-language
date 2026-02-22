@@ -1,0 +1,299 @@
+[
+  {
+    "id": "place-order",
+    "label": "User Places an Order",
+    "description": "The primary checkout flow. Covers authentication, parallel cart validation and stock check, payment intent creation, order persistence, and async fulfilment kickoff. This flow ends when the order is persisted and a payment intent is handed to the client — fulfilment continues asynchronously in the 'order-fulfilment' flow.",
+    "trigger": "checkout-submit",
+    "steps": [
+      {
+        "id": "1.0",
+        "actor": "api-gateway",
+        "action": "verify JWT from request cookie",
+        "via": "gateway-session-cache",
+        "returns": "Authenticated user context (user ID, roles)",
+        "error": {
+          "condition": "Token missing, expired, or invalid",
+          "handling": "Return 401 to client immediately. Do not forward request."
+        }
+      },
+      {
+        "id": "2.0",
+        "actor": "api-gateway",
+        "action": "route POST /orders to Order Service",
+        "via": "gateway-to-order",
+        "notes": "Gateway attaches verified user context as a signed internal header before forwarding."
+      },
+      {
+        "id": "3.0",
+        "actor": "order-service",
+        "action": "validate order request structure and business rules",
+        "returns": "Validated order object (not yet persisted)",
+        "error": {
+          "condition": "Missing fields, invalid address, cart is empty",
+          "handling": "Return 422 with field-level validation errors"
+        },
+        "notes": "No external calls yet. Pure in-process validation: required fields, non-empty cart, address format."
+      },
+      {
+        "id": "4.a",
+        "actor": "order-service",
+        "action": "check stock availability for all line items",
+        "via": "order-to-inventory",
+        "parallel": true,
+        "returns": "Stock availability map per line item",
+        "error": {
+          "condition": "One or more items out of stock or below requested quantity",
+          "handling": "Return 409 with per-item availability details. Do not proceed to payment."
+        }
+      },
+      {
+        "id": "4.b",
+        "actor": "order-service",
+        "action": "create Stripe payment intent for order total",
+        "via": "order-to-payment",
+        "parallel": true,
+        "returns": "Stripe PaymentIntent ID and client_secret",
+        "error": {
+          "condition": "Stripe API timeout or error",
+          "handling": "Return 502. Do not persist order. Circuit breaker trips after 3 consecutive failures."
+        },
+        "notes": "Payment intent is created but NOT confirmed yet. Confirmation happens client-side or via webhook. order_id is embedded in PaymentIntent metadata for webhook correlation."
+      },
+      {
+        "id": "5.0",
+        "actor": "order-service",
+        "action": "persist order with AWAITING_PAYMENT status",
+        "via": "order-to-db",
+        "returns": "Persisted order ID",
+        "error": {
+          "condition": "Database write failure",
+          "handling": "Return 500. Void the payment intent created in step 4.b asynchronously.",
+          "goto": "5.0-compensate"
+        }
+      },
+      {
+        "id": "5.0-compensate",
+        "actor": "order-service",
+        "action": "void Stripe payment intent on DB failure",
+        "via": "order-to-payment",
+        "condition": "Only if step 5.0 failed",
+        "notes": "Compensation step to avoid orphaned payment intents. Best-effort — logged if it also fails."
+      },
+      {
+        "id": "6.0",
+        "actor": "order-service",
+        "action": "emit order.created event",
+        "via": "order-to-eventbus",
+        "notes": "Downstream: inventory-service will reserve stock on receipt. This is fire-and-forget from the Order Service's perspective — it does not wait."
+      },
+      {
+        "id": "7.0",
+        "actor": "api-gateway",
+        "action": "return order confirmation to client",
+        "via": "gateway-to-order",
+        "returns": "Order ID, AWAITING_PAYMENT status, and Stripe client_secret for client-side payment confirmation"
+      }
+    ],
+    "outcome": {
+      "success": "Order persisted with AWAITING_PAYMENT status. Client receives order ID and Stripe client_secret to complete payment confirmation on the frontend.",
+      "side_effects": [
+        "event:order.created emitted to event bus",
+        "Inventory reservation triggered asynchronously",
+        "Stripe PaymentIntent created and awaiting client confirmation"
+      ]
+    },
+    "continues_async": [
+      {
+        "flow_ref": "order-fulfilment",
+        "via_event": "stripe-payment-success webhook",
+        "condition": "User completes client-side payment confirmation and Stripe reports success"
+      },
+      {
+        "flow_ref": "payment-failure",
+        "via_event": "stripe-payment-failed webhook",
+        "condition": "User completes client-side payment confirmation and Stripe reports failure"
+      }
+    ],
+    "variants": [
+      {
+        "label": "Guest Checkout",
+        "flow_ref": "place-order-guest",
+        "condition": "User is not authenticated — email collected at checkout, account optionally created post-purchase"
+      }
+    ],
+    "tags": ["critical-path", "revenue", "authenticated"]
+  },
+
+  {
+    "id": "order-fulfilment",
+    "label": "Order Fulfilment After Payment",
+    "description": "The async continuation of the checkout flow. Triggered by Stripe's payment webhook after the user completes client-side payment confirmation. Transitions the order from AWAITING_PAYMENT to CONFIRMED and kicks off downstream fulfilment work.",
+    "trigger": "stripe-payment-success",
+    "steps": [
+      {
+        "id": "1.0",
+        "actor": "api-gateway",
+        "action": "receive POST /webhooks/stripe and forward to Payment Service",
+        "via": "gateway-to-payment-webhook",
+        "notes": "Gateway does NOT verify the Stripe signature — it passes the raw headers and body through. Verification is the responsibility of Payment Service which has the signing secret."
+      },
+      {
+        "id": "2.0",
+        "actor": "payment-service",
+        "action": "verify Stripe-Signature HMAC header",
+        "returns": "Verified PaymentIntent object",
+        "error": {
+          "condition": "Signature invalid or timestamp too old (replay attack)",
+          "handling": "Return 400 to Stripe. Log the incident. Do not process."
+        }
+      },
+      {
+        "id": "3.0",
+        "actor": "payment-service",
+        "action": "extract internal order ID from PaymentIntent metadata",
+        "returns": "Internal order ID",
+        "error": {
+          "condition": "order_id missing from PaymentIntent metadata",
+          "handling": "Return 422. Alert on-call. This indicates a bug in payment intent creation."
+        }
+      },
+      {
+        "id": "4.0",
+        "actor": "payment-service",
+        "action": "emit payment.completed event with order ID",
+        "via": "payment-to-eventbus",
+        "notes": "Return 200 to Stripe immediately after emitting. Stripe will retry if it does not receive 200 within 30 seconds."
+      },
+      {
+        "id": "5.0",
+        "actor": "order-service",
+        "action": "consume payment.completed from event bus",
+        "via": "eventbus-to-order",
+        "notes": "Order Service subscribes to payment.completed. This step is async — decoupled from the webhook response."
+      },
+      {
+        "id": "6.0",
+        "actor": "order-service",
+        "action": "transition order status from AWAITING_PAYMENT to CONFIRMED",
+        "via": "order-to-db",
+        "error": {
+          "condition": "Order not found or already in terminal state",
+          "handling": "Log and discard — idempotency guard. Likely a duplicate webhook delivery."
+        }
+      },
+      {
+        "id": "7.a",
+        "actor": "order-service",
+        "action": "emit order.confirmed event",
+        "via": "order-to-eventbus",
+        "parallel": true,
+        "notes": "Consumed by notification-service to send confirmation email."
+      },
+      {
+        "id": "7.b",
+        "actor": "inventory-service",
+        "action": "consume order.created and decrement stock",
+        "via": "eventbus-to-order",
+        "parallel": true,
+        "notes": "inventory-service subscribes to order.created (emitted earlier in place-order flow). Shown here to illustrate the async parallelism across services. Decrement is idempotent via reservation ID.",
+        "condition": "If reservation was successfully made in response to order.created event"
+      },
+      {
+        "id": "8.0",
+        "actor": "notification-service",
+        "action": "consume order.confirmed and send confirmation email via SendGrid",
+        "via": "notification-to-sendgrid",
+        "notes": "Notification Service subscribes to order.confirmed. Email contains order summary, estimated delivery, and support link."
+      }
+    ],
+    "outcome": {
+      "success": "Order status is CONFIRMED. Customer receives confirmation email. Inventory decremented.",
+      "side_effects": [
+        "event:payment.completed emitted",
+        "event:order.confirmed emitted",
+        "Order status updated to CONFIRMED in orders DB",
+        "Inventory stock decremented",
+        "Confirmation email delivered via SendGrid"
+      ]
+    },
+    "continues_async": [
+      {
+        "flow_ref": "payment-failure",
+        "via_event": "stripe-payment-failed webhook",
+        "condition": "Only relevant as an alternative outcome — if payment fails instead of succeeding, this flow does not run"
+      }
+    ],
+    "tags": ["critical-path", "revenue", "async"]
+  },
+
+  {
+    "id": "payment-failure",
+    "label": "Payment Fails After Checkout",
+    "description": "Handles the case where Stripe reports a failed payment intent — card declined, fraud detected, or insufficient funds. Cancels the order and notifies the user.",
+    "trigger": "stripe-payment-failed",
+    "steps": [
+      {
+        "id": "1.0",
+        "actor": "api-gateway",
+        "action": "receive POST /webhooks/stripe and forward to Payment Service",
+        "via": "gateway-to-payment-webhook"
+      },
+      {
+        "id": "2.0",
+        "actor": "payment-service",
+        "action": "verify Stripe-Signature and extract order ID",
+        "returns": "Verified failure reason and internal order ID",
+        "error": {
+          "condition": "Signature invalid",
+          "handling": "Return 400. Log incident."
+        }
+      },
+      {
+        "id": "3.0",
+        "actor": "payment-service",
+        "action": "emit payment.failed event with order ID and failure reason",
+        "via": "payment-to-eventbus"
+      },
+      {
+        "id": "4.0",
+        "actor": "order-service",
+        "action": "consume payment.failed and transition order to PAYMENT_FAILED",
+        "via": "eventbus-to-order",
+        "returns": "Updated order record"
+      },
+      {
+        "id": "5.a",
+        "actor": "order-service",
+        "action": "emit order.cancelled event",
+        "via": "order-to-eventbus",
+        "parallel": true
+      },
+      {
+        "id": "5.b",
+        "actor": "inventory-service",
+        "action": "release reserved stock for the cancelled order",
+        "via": "eventbus-to-order",
+        "parallel": true,
+        "notes": "inventory-service subscribes to order.cancelled. Releases any reservation made during the place-order flow."
+      },
+      {
+        "id": "6.0",
+        "actor": "notification-service",
+        "action": "consume payment.failed and send failure notification email",
+        "via": "notification-to-sendgrid",
+        "notes": "Email includes the failure reason and a direct link back to the checkout page to retry."
+      }
+    ],
+    "outcome": {
+      "success": "Order cancelled. Stock reservation released. User notified with failure reason and retry link.",
+      "side_effects": [
+        "event:payment.failed emitted",
+        "event:order.cancelled emitted",
+        "Order status updated to PAYMENT_FAILED",
+        "Inventory reservation released",
+        "Payment failure email sent to customer"
+      ]
+    },
+    "tags": ["error-path", "async"]
+  }
+]

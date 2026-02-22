@@ -1,0 +1,235 @@
+[
+  {
+    "id": "end-user",
+    "kind": "actor",
+    "label": "End User",
+    "description": "A registered customer shopping on the platform.",
+    "tags": ["external", "human"]
+  },
+
+  {
+    "id": "web-frontend",
+    "kind": "frontend",
+    "label": "Web Storefront",
+    "description": "Browser-based shopping interface. Handles product browsing, cart management, and checkout UI.",
+    "responsibilities": [
+      "Render product catalog and cart",
+      "Collect shipping and payment details",
+      "Display order confirmation"
+    ],
+    "exposes": [],
+    "consumes": [
+      "rest:GET /products",
+      "rest:GET /cart",
+      "rest:POST /orders"
+    ],
+    "technology": {
+      "framework": "Next.js",
+      "language": "TypeScript"
+    },
+    "tags": ["client", "user-facing"]
+  },
+
+  {
+    "id": "api-gateway",
+    "kind": "gateway",
+    "label": "API Gateway",
+    "description": "Single entry point for all client traffic. Handles JWT verification, rate limiting, and routing to backend services.",
+    "responsibilities": [
+      "Verify JWT on every inbound request",
+      "Rate limit by user and IP",
+      "Route requests to appropriate services",
+      "Terminate TLS"
+    ],
+    "exposes": [
+      "rest:POST /orders",
+      "rest:GET /orders/{id}",
+      "rest:GET /products",
+      "rest:GET /cart",
+      "rest:POST /webhooks/stripe"
+    ],
+    "technology": {
+      "platform": "AWS API Gateway"
+    },
+    "tags": ["infrastructure", "critical-path"]
+  },
+
+  {
+    "id": "order-service",
+    "kind": "microservice",
+    "label": "Order Service",
+    "description": "Owns the full order lifecycle from creation through fulfilment. The orchestrator of the checkout flow.",
+    "responsibilities": [
+      "Validate and create orders",
+      "Coordinate with inventory and payment services",
+      "Persist order state",
+      "Emit order lifecycle events"
+    ],
+    "exposes": [
+      "rest:POST /orders",
+      "rest:GET /orders/{id}",
+      "rest:PATCH /orders/{id}/status",
+      "event:order.created",
+      "event:order.confirmed",
+      "event:order.cancelled"
+    ],
+    "consumes": [
+      "event:payment.completed",
+      "event:payment.failed",
+      "event:inventory.reserved",
+      "event:inventory.reservation-failed"
+    ],
+    "technology": {
+      "language": "TypeScript",
+      "framework": "Express",
+      "platform": "Kubernetes"
+    },
+    "contracts": [
+      { "type": "openapi", "ref": "./contracts/order-service.openapi.yaml" }
+    ],
+    "tags": ["core-domain", "team-checkout", "critical-path"]
+  },
+
+  {
+    "id": "inventory-service",
+    "kind": "microservice",
+    "label": "Inventory Service",
+    "description": "Owns product stock levels. Handles reservation and release of inventory during the order lifecycle.",
+    "responsibilities": [
+      "Check stock availability",
+      "Reserve stock for pending orders",
+      "Release stock on cancellation",
+      "Decrement stock on fulfilment"
+    ],
+    "exposes": [
+      "rest:POST /inventory/reserve",
+      "rest:POST /inventory/release",
+      "rest:GET /inventory/{product-id}",
+      "event:inventory.reserved",
+      "event:inventory.reservation-failed"
+    ],
+    "technology": {
+      "language": "Go",
+      "platform": "Kubernetes"
+    },
+    "tags": ["core-domain", "team-inventory"]
+  },
+
+  {
+    "id": "payment-service",
+    "kind": "microservice",
+    "label": "Payment Service",
+    "description": "Manages payment intent creation and coordinates with Stripe. Handles Stripe webhook ingestion and translates external events into internal ones.",
+    "responsibilities": [
+      "Create Stripe payment intents",
+      "Expose webhook endpoint for Stripe callbacks",
+      "Verify Stripe webhook signatures",
+      "Emit internal payment events"
+    ],
+    "exposes": [
+      "rest:POST /payments/intent",
+      "rest:POST /webhooks/stripe",
+      "event:payment.completed",
+      "event:payment.failed"
+    ],
+    "technology": {
+      "language": "TypeScript",
+      "framework": "Express",
+      "platform": "Kubernetes"
+    },
+    "tags": ["core-domain", "team-payments", "pci-scope"]
+  },
+
+  {
+    "id": "notification-service",
+    "kind": "microservice",
+    "label": "Notification Service",
+    "description": "Sends transactional emails and push notifications in response to order and payment events. Stateless — consumes events and delivers messages.",
+    "responsibilities": [
+      "Send order confirmation emails",
+      "Send payment failure notifications",
+      "Send shipping updates"
+    ],
+    "consumes": [
+      "event:order.confirmed",
+      "event:order.cancelled",
+      "event:payment.failed"
+    ],
+    "technology": {
+      "language": "Python",
+      "platform": "Kubernetes"
+    },
+    "tags": ["supporting-domain", "team-comms"]
+  },
+
+  {
+    "id": "stripe-api",
+    "kind": "external-api",
+    "label": "Stripe",
+    "description": "Third-party payment processing platform. Used to create payment intents and process card charges. Sends webhook callbacks on payment completion or failure.",
+    "exposes": [
+      "rest:POST /v1/payment_intents",
+      "rest:POST /v1/payment_intents/{id}/confirm"
+    ],
+    "contracts": [
+      { "type": "openapi", "ref": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json" }
+    ],
+    "tags": ["external", "pci-scope", "critical-path"]
+  },
+
+  {
+    "id": "order-db",
+    "kind": "database",
+    "label": "Orders Database",
+    "description": "PostgreSQL database owned exclusively by the Order Service. Stores order records, line items, and status history.",
+    "technology": {
+      "framework": "PostgreSQL 16",
+      "platform": "AWS RDS"
+    },
+    "tags": ["persistence", "team-checkout"]
+  },
+
+  {
+    "id": "inventory-db",
+    "kind": "database",
+    "label": "Inventory Database",
+    "description": "PostgreSQL database owned exclusively by the Inventory Service. Stores product stock levels and reservation records.",
+    "technology": {
+      "framework": "PostgreSQL 16",
+      "platform": "AWS RDS"
+    },
+    "tags": ["persistence", "team-inventory"]
+  },
+
+  {
+    "id": "session-cache",
+    "kind": "cache",
+    "label": "Session Cache",
+    "description": "Redis cache used by the API Gateway to store validated session tokens, reducing auth verification latency on hot paths.",
+    "technology": {
+      "framework": "Redis 7",
+      "platform": "AWS ElastiCache"
+    },
+    "tags": ["infrastructure", "team-platform"]
+  },
+
+  {
+    "id": "event-bus",
+    "kind": "message-broker",
+    "label": "Event Bus",
+    "description": "Kafka cluster used as the central event backbone. All inter-service async communication passes through here.",
+    "technology": {
+      "framework": "Apache Kafka",
+      "platform": "AWS MSK"
+    },
+    "tags": ["infrastructure", "team-platform"]
+  },
+
+  {
+    "id": "sendgrid",
+    "kind": "external-api",
+    "label": "SendGrid",
+    "description": "Managed transactional email delivery provider used by the Notification Service.",
+    "tags": ["external", "team-comms"]
+  }
+]

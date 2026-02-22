@@ -1,0 +1,57 @@
+[
+  {
+    "id": "checkout-submit",
+    "kind": "user-interaction",
+    "label": "User Submits Checkout",
+    "description": "Fired when an authenticated user submits the checkout form. Carries the full cart, selected shipping address, and chosen payment method.",
+    "source": "end-user",
+    "target": "api-gateway",
+    "interaction": {
+      "gesture": "submit",
+      "element": "checkout-form",
+      "context": "Checkout page"
+    },
+    "payload": {
+      "description": "Cart line items with quantities, user ID, selected shipping address ID, and Stripe payment method ID"
+    },
+    "tags": ["user-facing", "revenue-critical", "critical-path"]
+  },
+
+  {
+    "id": "stripe-payment-success",
+    "kind": "inbound-webhook",
+    "label": "Stripe: Payment Intent Succeeded",
+    "description": "Sent by Stripe when a payment intent transitions to 'succeeded'. Contains the full PaymentIntent object including metadata with our internal order ID.",
+    "source": "stripe-api",
+    "target": "api-gateway",
+    "webhook": {
+      "provider": "Stripe",
+      "event_type": "payment_intent.succeeded",
+      "verification": "hmac-signature"
+    },
+    "payload": {
+      "description": "Stripe PaymentIntent object. metadata.order_id contains the SDL system's internal order ID.",
+      "schema_ref": "https://stripe.com/docs/api/payment_intents/object"
+    },
+    "tags": ["external", "revenue-critical", "pci-scope"]
+  },
+
+  {
+    "id": "stripe-payment-failed",
+    "kind": "inbound-webhook",
+    "label": "Stripe: Payment Intent Failed",
+    "description": "Sent by Stripe when a payment intent fails — card declined, insufficient funds, fraud detected, etc.",
+    "source": "stripe-api",
+    "target": "api-gateway",
+    "webhook": {
+      "provider": "Stripe",
+      "event_type": "payment_intent.payment_failed",
+      "verification": "hmac-signature"
+    },
+    "payload": {
+      "description": "Stripe PaymentIntent object with last_payment_error describing the failure reason.",
+      "schema_ref": "https://stripe.com/docs/api/payment_intents/object"
+    },
+    "tags": ["external", "pci-scope"]
+  }
+]

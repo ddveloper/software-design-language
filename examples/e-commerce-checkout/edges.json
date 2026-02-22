@@ -1,0 +1,233 @@
+[
+  {
+    "id": "user-to-frontend",
+    "protocol": "rest",
+    "source": "end-user",
+    "target": "web-frontend",
+    "label": "Browse, manage cart, and initiate checkout",
+    "direction": "bidirectional",
+    "style": "sync",
+    "tags": ["user-facing"]
+  },
+
+  {
+    "id": "frontend-to-gateway",
+    "protocol": "rest",
+    "source": "web-frontend",
+    "target": "api-gateway",
+    "label": "All API calls from the browser",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "jwt", "description": "Bearer token stored in httpOnly cookie, attached to every request" },
+    "reliability": {
+      "timeout_ms": 10000,
+      "retry": true
+    },
+    "tags": ["user-facing", "critical-path"]
+  },
+
+  {
+    "id": "gateway-session-cache",
+    "protocol": "database",
+    "source": "api-gateway",
+    "target": "session-cache",
+    "label": "Look up and store validated session tokens",
+    "direction": "bidirectional",
+    "style": "sync",
+    "reliability": {
+      "timeout_ms": 50,
+      "circuit_breaker": true
+    },
+    "tags": ["infrastructure"]
+  },
+
+  {
+    "id": "gateway-to-order",
+    "protocol": "rest",
+    "source": "api-gateway",
+    "target": "order-service",
+    "label": "Route order creation and query requests",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "mtls", "description": "mTLS between gateway and internal services" },
+    "reliability": {
+      "timeout_ms": 8000,
+      "retry": true,
+      "circuit_breaker": true
+    },
+    "tags": ["internal", "critical-path"]
+  },
+
+  {
+    "id": "gateway-to-payment-webhook",
+    "protocol": "rest",
+    "source": "api-gateway",
+    "target": "payment-service",
+    "label": "Forward inbound Stripe webhooks to Payment Service",
+    "direction": "unidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "custom", "description": "Stripe-Signature header passed through for verification by Payment Service" },
+    "tags": ["internal", "webhooks"]
+  },
+
+  {
+    "id": "order-to-inventory",
+    "protocol": "rest",
+    "source": "order-service",
+    "target": "inventory-service",
+    "label": "Check stock availability during order validation",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "mtls" },
+    "reliability": {
+      "timeout_ms": 3000,
+      "retry": true,
+      "circuit_breaker": true
+    },
+    "tags": ["internal", "critical-path"]
+  },
+
+  {
+    "id": "order-to-payment",
+    "protocol": "rest",
+    "source": "order-service",
+    "target": "payment-service",
+    "label": "Request payment intent creation",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "mtls" },
+    "reliability": {
+      "timeout_ms": 5000,
+      "retry": false,
+      "circuit_breaker": true
+    },
+    "tags": ["internal", "critical-path", "pci-scope"]
+  },
+
+  {
+    "id": "order-to-db",
+    "protocol": "database",
+    "source": "order-service",
+    "target": "order-db",
+    "label": "Read and write order records",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "custom", "description": "Rotating credentials via AWS Secrets Manager" },
+    "tags": ["persistence"]
+  },
+
+  {
+    "id": "inventory-to-db",
+    "protocol": "database",
+    "source": "inventory-service",
+    "target": "inventory-db",
+    "label": "Read and write stock levels and reservations",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "custom", "description": "Rotating credentials via AWS Secrets Manager" },
+    "tags": ["persistence"]
+  },
+
+  {
+    "id": "payment-to-stripe",
+    "protocol": "rest",
+    "source": "payment-service",
+    "target": "stripe-api",
+    "label": "Create and confirm payment intents",
+    "direction": "bidirectional",
+    "style": "sync",
+    "auth": { "mechanism": "api-key", "description": "Stripe secret key, scoped to payment intents only" },
+    "reliability": {
+      "timeout_ms": 10000,
+      "retry": false,
+      "circuit_breaker": true
+    },
+    "tags": ["external", "critical-path", "pci-scope"]
+  },
+
+  {
+    "id": "order-to-eventbus",
+    "protocol": "kafka",
+    "source": "order-service",
+    "target": "event-bus",
+    "label": "Publish order lifecycle events",
+    "direction": "unidirectional",
+    "style": "async",
+    "reliability": {
+      "delivery": "at-least-once"
+    },
+    "tags": ["events", "core-domain"]
+  },
+
+  {
+    "id": "payment-to-eventbus",
+    "protocol": "kafka",
+    "source": "payment-service",
+    "target": "event-bus",
+    "label": "Publish payment outcome events",
+    "direction": "unidirectional",
+    "style": "async",
+    "reliability": {
+      "delivery": "at-least-once"
+    },
+    "tags": ["events", "pci-scope"]
+  },
+
+  {
+    "id": "inventory-to-eventbus",
+    "protocol": "kafka",
+    "source": "inventory-service",
+    "target": "event-bus",
+    "label": "Publish inventory reservation events",
+    "direction": "unidirectional",
+    "style": "async",
+    "reliability": {
+      "delivery": "at-least-once"
+    },
+    "tags": ["events", "core-domain"]
+  },
+
+  {
+    "id": "eventbus-to-order",
+    "protocol": "kafka",
+    "source": "event-bus",
+    "target": "order-service",
+    "label": "Deliver payment and inventory events to Order Service",
+    "direction": "unidirectional",
+    "style": "async",
+    "reliability": {
+      "delivery": "at-least-once"
+    },
+    "tags": ["events", "core-domain"]
+  },
+
+  {
+    "id": "eventbus-to-notification",
+    "protocol": "kafka",
+    "source": "event-bus",
+    "target": "notification-service",
+    "label": "Deliver order and payment events to Notification Service",
+    "direction": "unidirectional",
+    "style": "async",
+    "reliability": {
+      "delivery": "at-least-once"
+    },
+    "tags": ["events", "supporting-domain"]
+  },
+
+  {
+    "id": "notification-to-sendgrid",
+    "protocol": "rest",
+    "source": "notification-service",
+    "target": "sendgrid",
+    "label": "Deliver transactional email",
+    "direction": "unidirectional",
+    "style": "async",
+    "auth": { "mechanism": "api-key" },
+    "reliability": {
+      "timeout_ms": 5000,
+      "retry": true
+    },
+    "tags": ["external", "email"]
+  }
+]
