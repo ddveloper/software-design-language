@@ -84,13 +84,13 @@ SDL is not a deployment specification (that's Terraform / Kubernetes). It's not 
 
 ## How It Compares
 
-|  | C4 / Structurizr | ArchiMate | **SDL** |
-|--|--|--|--|
-| Machine-readable first | Partial | No | ✅ |
-| Flow / use-case native | No | Partial | ✅ |
-| AI-context ready | No | No | ✅ |
-| Open, extensible schema | No | No | ✅ |
-| Presentation fully separated | Partial | No | ✅ |
+|  | C4 / Structurizr | ArchiMate | UML | **SDL** |
+|--|--|--|--|--|
+| Machine-readable first | Partial | No | Partial | ✅ |
+| Flow / use-case native | No | Partial | ✅ | ✅ |
+| AI-context ready | No | No | No | ✅ |
+| Open, extensible schema | No | No | No | ✅ |
+| Presentation fully separated | Partial | No | No | ✅ |
 
 ---
 
@@ -116,8 +116,8 @@ software-design-language/
 ## Roadmap
 
 - [x] v0.1 — Core schema spec (Node, Edge, Trigger, Flow)
-- [ ] v0.2 — CLI validator and linter
-- [ ] v0.3 — Reference renderer (web-based, SVG)
+- [x] v0.2 — CLI validator and linter
+- [x] v0.3 — Reference renderer (web-based, SVG)
 - [x] v0.4 — Standard library of common kinds
 - [ ] v0.5 — AI context integration examples
 - [ ] v1.0 — Stable spec
