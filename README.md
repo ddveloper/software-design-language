@@ -115,10 +115,10 @@ software-design-language/
 
 ## Roadmap
 
-- [ ] v0.1 — Core schema spec (Node, Edge, Trigger, Flow)
+- [x] v0.1 — Core schema spec (Node, Edge, Trigger, Flow)
 - [ ] v0.2 — CLI validator and linter
 - [ ] v0.3 — Reference renderer (web-based, SVG)
-- [ ] v0.4 — Standard library of common kinds
+- [x] v0.4 — Standard library of common kinds
 - [ ] v0.5 — AI context integration examples
 - [ ] v1.0 — Stable spec
 
