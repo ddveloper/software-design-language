@@ -1,0 +1,56 @@
+name: Validate SDL Examples
+
+on:
+  pull_request:
+    paths:
+      # Run when examples change
+      - "examples/**"
+      # Also run when the spec or stdlib changes — a spec change could
+      # invalidate existing examples
+      - "spec/**"
+      - "stdlib/**"
+      # And when the validator itself changes
+      - "cli/**"
+
+  # Allow manual runs from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate examples against spec
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: cli/package.json
+
+      - name: Install dependencies
+        working-directory: cli
+        run: npm install
+
+      - name: Run SDL validator
+        # Run from repo root so relative paths to spec/ and stdlib/ resolve correctly
+        run: node cli/validate.js examples/
+
+      # Post a summary to the PR so reviewers see results without opening the logs
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SDL Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ job.status }} == "success" ]; then
+            echo "✅ All examples passed validation." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ One or more examples failed validation." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`node cli/validate.js examples/\` locally to see details." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by changes to:** \`${{ github.event.pull_request.head.ref }}\`" >> $GITHUB_STEP_SUMMARY
