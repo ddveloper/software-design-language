@@ -132,7 +132,7 @@ SDL is in early design stage. The most valuable contributions right now are:
 - **Real-world examples** — model a system you know well in SDL and share it
 - **Tooling ideas** — IDE plugins, exporters, AI integrations
 
-Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting a PR.
+Please read [CONTRIBUTING.md](./Contributing.md) before submitting a PR.
 
 ---
 
