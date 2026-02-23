@@ -23,13 +23,14 @@ const ROOT = resolve(__dirname, "..");
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const opts = { theme: "default", output: null, title: null };
+  const opts = { theme: "default", output: null, title: null, layout: null };
   let exampleDir = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--theme")  { opts.theme  = args[++i]; continue; }
     if (args[i] === "--output") { opts.output = args[++i]; continue; }
     if (args[i] === "--title")  { opts.title  = args[++i]; continue; }
+    if (args[i] === "--layout") { opts.layout = args[++i]; continue; }
     if (!exampleDir) exampleDir = args[i];
   }
 
@@ -300,48 +301,46 @@ function nodeShapeSVG(node, pos, theme, kinds) {
 }
 
 // ── Edge routing ──────────────────────────────────────────────────────────────
-// Port spreading: pre-compute per-node port slots so edges fan out
-// across the node height instead of all meeting at the center.
+// Port spreading: uses actual x-coordinates (not layer index) to determine
+// left/right side — matches JSX authoring tool so exported layouts render
+// identically in both environments.
 
 function buildPortIndex(edges, positions, nodes, theme) {
-  // For each node, collect edges on left and right sides, assign y offsets
   const rightEdges = {}, leftEdges = {};
   for (const e of edges) {
     const sp = positions[e.source], tp = positions[e.target];
     if (!sp || !tp) continue;
-    const toRight = sp.layer <= tp.layer;
-    const srcKey = toRight ? "right" : "left";
-    const tgtKey = toRight ? "left"  : "right";
-    (srcKey === "right" ? rightEdges : leftEdges)[e.source] =
-      (srcKey === "right" ? rightEdges : leftEdges)[e.source] || [];
-    (srcKey === "right" ? rightEdges : leftEdges)[e.source].push(e.id);
-    (tgtKey === "left"  ? leftEdges  : rightEdges)[e.target] =
-      (tgtKey === "left" ? leftEdges  : rightEdges)[e.target] || [];
-    (tgtKey === "left"  ? leftEdges  : rightEdges)[e.target].push(e.id);
+    const sn = nodes.find(n => n.id === e.source);
+    const tn = nodes.find(n => n.id === e.target);
+    if (!sn || !tn) continue;
+    const { w: sw } = getNodeDims(sn.kind, theme);
+    const { w: tw } = getNodeDims(tn.kind, theme);
+    // toRight based on node centres — correct even after layout override
+    const toRight = (sp.x + sw / 2) <= (tp.x + tw / 2);
+    (toRight ? rightEdges : leftEdges)[e.source] =
+      ((toRight ? rightEdges : leftEdges)[e.source] || []).concat(e.id);
+    (toRight ? leftEdges  : rightEdges)[e.target] =
+      ((toRight ? leftEdges  : rightEdges)[e.target] || []).concat(e.id);
   }
 
-  // portY[edgeId][nodeId] = y offset within that node
   const portY = {};
-  function assignPorts(sideMap, side) {
+  function assignPorts(sideMap) {
     for (const [nodeId, edgeIds] of Object.entries(sideMap)) {
       const node = nodes.find(n => n.id === nodeId);
       const pos  = positions[nodeId];
       if (!node || !pos) continue;
       const { h } = getNodeDims(node.kind, theme);
-      const count = edgeIds.length;
+      const count = edgeIds.length, pad = h * 0.2;
       edgeIds.forEach((eid, i) => {
-        // Spread ports evenly, with padding of 20% from top and bottom
-        const pad = h * 0.2;
-        const y = count === 1
+        portY[eid] = portY[eid] || {};
+        portY[eid][nodeId] = count === 1
           ? pos.y + h / 2
           : pos.y + pad + (i / (count - 1)) * (h - pad * 2);
-        portY[eid] = portY[eid] || {};
-        portY[eid][nodeId] = y;
       });
     }
   }
-  assignPorts(rightEdges, "right");
-  assignPorts(leftEdges,  "left");
+  assignPorts(rightEdges);
+  assignPorts(leftEdges);
   return portY;
 }
 
@@ -350,16 +349,14 @@ function edgeSVG(edge, positions, nodes, theme, kinds, portY) {
   const tgtPos = positions[edge.target];
   if (!srcPos || !tgtPos) return "";
 
-  const srcLayer = srcPos.layer;
-  const tgtLayer = tgtPos.layer;
-  const toRight  = srcLayer <= tgtLayer;
-
   const srcNode = nodes.find(n => n.id === edge.source);
   const tgtNode = nodes.find(n => n.id === edge.target);
   if (!srcNode || !tgtNode) return "";
 
   const srcDims = getNodeDims(srcNode.kind, theme);
   const tgtDims = getNodeDims(tgtNode.kind, theme);
+  // Use node centres for toRight — consistent with buildPortIndex and JSX
+  const toRight = (srcPos.x + srcDims.w / 2) <= (tgtPos.x + tgtDims.w / 2);
 
   // Get spread port y, falling back to center
   const srcY = (portY[edge.id] && portY[edge.id][edge.source]) ?? (srcPos.y + srcDims.h / 2);
@@ -458,18 +455,16 @@ function computeCanvasSize(positions, nodes, theme) {
   };
 }
 
-// ── Grid ──────────────────────────────────────────────────────────────────────
+// ── Grid — SVG pattern (matches JSX, no O(n) line elements) ─────────────────
 
 function buildGrid(width, height, theme) {
-  if (!theme.canvas.grid) return "";
+  if (!theme.canvas.grid) return { pattern: "", rect: "" };
   const s = theme.canvas.grid_size || 24;
-  let lines = `<g opacity="0.5">`;
-  for (let x = 0; x <= width; x += s)
-    lines += `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="${theme.canvas.grid_color}" stroke-width="0.5"/>`;
-  for (let y = 0; y <= height; y += s)
-    lines += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="${theme.canvas.grid_color}" stroke-width="0.5"/>`;
-  lines += `</g>`;
-  return lines;
+  const pattern = `<pattern id="sdl-grid" width="${s}" height="${s}" patternUnits="userSpaceOnUse">
+    <path d="M ${s} 0 L 0 0 0 ${s}" fill="none" stroke="${theme.canvas.grid_color}" stroke-width="0.5"/>
+  </pattern>`;
+  const rect = `<rect width="${width}" height="${height}" fill="url(#sdl-grid)" opacity="0.6"/>`;
+  return { pattern, rect };
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────────
@@ -802,22 +797,40 @@ function run() {
   console.log(`  Theme   : ${theme.name}`);
   console.log(`  Nodes   : ${nodes.length}  Edges: ${edges.length}  Flows: ${flows.length}`);
 
-  // Layout — pass edges so barycenter algorithm can minimise crossings
-  const positions  = computeLayout(nodes, edges, theme);
+  // Layout — compute from algorithm, then overlay saved positions if available
+  let positions = computeLayout(nodes, edges, theme);
+
+  // Check for layout override: --layout flag > auto-detect <dir>/layout.json
+  const layoutPath = opts.layout
+    ? resolve(opts.layout)
+    : join(dir, "layout.json");
+  try {
+    const saved = loadJSON(layoutPath);
+    let loaded = 0;
+    for (const node of nodes) {
+      if (saved[node.id]) {
+        positions[node.id] = { ...positions[node.id], x: saved[node.id].x, y: saved[node.id].y };
+        loaded++;
+      }
+    }
+    if (loaded > 0) console.log(`  Layout  : loaded ${loaded} positions from ${basename(layoutPath)}`);
+  } catch (_) { /* no layout file — use computed positions */ }
+
   const canvasSize = computeCanvasSize(positions, nodes, theme);
 
   // Build SVG
-  const markers   = buildMarkers(theme);
-  const grid      = buildGrid(canvasSize.width, canvasSize.height, theme);
-  const portY     = buildPortIndex(edges, positions, nodes, theme);
-  const edgesSVG  = edges.map(e => edgeSVG(e, positions, nodes, theme, kinds, portY)).join("\n");
-  const nodesSVG  = nodes.map(n => nodeShapeSVG(n, positions[n.id] || {x:0,y:0}, theme, kinds)).join("\n");
+  const markers        = buildMarkers(theme);
+  const { pattern, rect: gridRect } = buildGrid(canvasSize.width, canvasSize.height, theme);
+  const portY          = buildPortIndex(edges, positions, nodes, theme);
+  const edgesSVG       = edges.map(e => edgeSVG(e, positions, nodes, theme, kinds, portY)).join("\n");
+  const nodesSVG       = nodes.map(n => nodeShapeSVG(n, positions[n.id] || {x:0,y:0}, theme, kinds)).join("\n");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg"
     width="${canvasSize.width}" height="${canvasSize.height}"
     viewBox="0 0 ${canvasSize.width} ${canvasSize.height}">
     ${markers}
-    ${grid}
+    ${pattern ? `<defs>${pattern}</defs>` : ""}
+    ${gridRect}
     <g id="edges">${edgesSVG}</g>
     <g id="nodes">${nodesSVG}</g>
   </svg>`;
