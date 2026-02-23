@@ -10,6 +10,7 @@ AI-powered authoring surface for SDL. Describe a software system in plain langua
 No installation required. Runs entirely in your browser using your Claude.ai session.
 
 ---
+<img width="1491" height="629" alt="image" src="https://github.com/user-attachments/assets/2aa934fc-ed73-4cd1-804c-8a645dd04675" />
 
 ## What it does
 
