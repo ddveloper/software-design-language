@@ -59,18 +59,18 @@ The building blocks of any system:
   "label": "User Places an Order",
   "trigger": "user-input:checkout-button",
   "steps": [
-    { "id": "1.0", "actor": "api-gateway",       "action": "authenticate",    "via": "jwt-edge" },
-    { "id": "2.a", "actor": "order-service",      "action": "validate-cart",   "via": "rest-edge" },
-    { "id": "2.b", "actor": "inventory-service",  "action": "reserve-stock",   "via": "rest-edge", "parallel": true },
-    { "id": "3.0", "actor": "order-service",      "action": "persist-order",   "via": "db-edge" },
-    { "id": "4.0", "actor": "order-service",      "action": "emit order.created", "via": "kafka-edge" }
+    { "id": "1.0", "actor": "api-gateway",      "action": "authenticate",       "via": "jwt-edge" },
+    { "id": "2.a", "actor": "order-service",     "action": "validate-cart",      "via": "rest-edge" },
+    { "id": "2.b", "actor": "inventory-service", "action": "reserve-stock",      "via": "rest-edge", "parallel": true },
+    { "id": "3.0", "actor": "order-service",     "action": "persist-order",      "via": "db-edge" },
+    { "id": "4.0", "actor": "order-service",     "action": "emit order.created", "via": "kafka-edge" }
   ]
 }
 ```
 
 ### Presentation Layer — Visualization
 
-The presentation layer is a **pure function of schema + flows**. No design information lives here. The same SDL source can be rendered as a C4 diagram, a sequence diagram, a dependency graph, or fed directly to an AI as structured context.
+The presentation layer is a **pure function of schema + flows**. No design information lives here. The same SDL source can be rendered as a layered graph, a sequence diagram, or fed directly to an AI as structured context.
 
 Shapes, colors, and iconography are driven by `kind` and configured in theme files — independently of the design data itself.
 
@@ -94,6 +94,24 @@ SDL is not a deployment specification (that's Terraform / Kubernetes). It's not 
 
 ---
 
+## How Engineers Use SDL
+
+SDL is designed to fit into daily AI-assisted engineering work, not just project kickoffs.
+
+**1. Describe → Generate**
+Open the [authoring tool](./authoring/README.md), describe your system in plain language, and receive all four SDL files plus a live diagram. Refine conversationally: *"make the payment call async"*, *"add a Redis cache in front of auth"*.
+
+**2. Commit SDL alongside code**
+SDL lives in the repo like `openapi.yaml` or `package.json`. It's the shared vocabulary for the team and the primary context source for any AI working on the codebase.
+
+**3. AI queries SDL mid-task**
+Via the MCP server (v0.8), AI coding assistants can call `get_flow_steps("checkout")` or `find_path("user", "database")` and receive precise, structured answers — without being handed the files manually. Engineers stop re-explaining architecture in every prompt.
+
+**4. SDL stays current**
+The reverse generation tool (v0.9) re-derives a draft SDL from static analysis of the codebase — imports, API routes, event publishers. Engineers correct the drift rather than maintain SDL by hand.
+
+---
+
 ## Project Structure
 
 ```
@@ -107,6 +125,7 @@ software-design-language/
 │   └── kinds.json
 ├── renderer/           # Reference visualization implementation
 ├── cli/                # Validate, lint, and diff SDL files
+├── authoring/          # AI authoring tool (React, runs in Claude.ai)
 ├── examples/           # Sample SDL projects
 └── docs/               # Human-readable specification
 ```
@@ -115,12 +134,32 @@ software-design-language/
 
 ## Roadmap
 
-- [x] v0.1 — Core schema spec (Node, Edge, Trigger, Flow)
-- [x] v0.2 — CLI validator and linter
-- [x] v0.3 — Reference renderer (web-based, SVG)
-- [x] v0.4 — Standard library of common kinds
-- [ ] v0.5 — AI context integration examples
-- [ ] v1.0 — Stable spec
+### Completed
+
+- [x] **v0.1** — Core schema spec (Node, Edge, Trigger, Flow)
+- [x] **v0.2** — CLI validator and linter
+- [x] **v0.3** — Reference renderer (web-based, SVG)
+- [x] **v0.4** — Standard library of common kinds
+- [x] **v0.5** — AI authoring tool (natural language → SDL, live diagram, drag & drop layout)
+
+### Upcoming
+
+- [ ] **v0.8** — MCP server
+  - Expose SDL as queryable tools: `read_nodes`, `read_flows`, `get_flow_steps`, `find_path`
+  - Any MCP-compatible AI (Claude, Cursor, Copilot) can query your architecture mid-task without being given files explicitly
+  - The point where SDL becomes useful to AI without any human prompting it to look
+
+- [ ] **v0.9** — Reverse generation (code → SDL)
+  - Static analysis of imports, API routes, and event publishers to generate a draft SDL
+  - Engineers correct the draft rather than write from scratch
+  - Closes the keep-current loop: code changes → re-derive SDL → diff → update
+
+- [ ] **v1.0** — SDL Registry
+  - Public registry of SDL schemas for common architecture patterns
+  - Engineers reference, fork, and adapt patterns rather than designing from scratch
+  - The path from tool to shared vocabulary — how SDL becomes an industry standard
+
+Each milestone makes the next one more valuable: MCP adoption creates demand for keeping SDL current (motivates v0.9), and a healthy ecosystem of up-to-date SDL files is what makes a registry worth contributing to (motivates v1.0).
 
 ---
 
@@ -130,7 +169,7 @@ SDL is in early design stage. The most valuable contributions right now are:
 
 - **Feedback on the spec** — open an issue to discuss schema decisions
 - **Real-world examples** — model a system you know well in SDL and share it
-- **Tooling ideas** — IDE plugins, exporters, AI integrations
+- **Tooling ideas** — MCP integrations, IDE plugins, reverse-generation approaches
 
 Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting a PR.
 
