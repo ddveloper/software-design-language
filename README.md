@@ -119,7 +119,7 @@ software-design-language/
 - [x] v0.2 — CLI validator and linter
 - [x] v0.3 — Reference renderer (web-based, SVG)
 - [x] v0.4 — Standard library of common kinds
-- [ ] v0.5 — AI context integration examples
+- [x] v0.5 — AI context integration examples
 - [ ] v1.0 — Stable spec
 
 ---
