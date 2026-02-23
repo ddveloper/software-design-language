@@ -4,9 +4,8 @@ AI-powered authoring surface for SDL. Describe a software system in plain langua
 
 ## Try it
 
-> **[Open in Claude.ai →](https://claude.ai/artifacts/YOUR_ARTIFACT_ID)**
+> **[Open in Claude.ai →](https://claude.ai/public/artifacts/b673dc3f-983f-489b-9845-0421e532bb22)**
 >
-> *(Replace the link above with your published artifact URL after running the JSX in Claude.ai)*
 
 No installation required. Runs entirely in your browser using your Claude.ai session.
 
