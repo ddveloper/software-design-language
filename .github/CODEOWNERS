@@ -1,0 +1,14 @@
+# SDL Spec Governance
+#
+# Changes to the language specification require explicit approval from spec maintainers.
+# This gate applies regardless of who opens the PR.
+#
+# To add a reviewer, append their GitHub handle to the /spec and /stdlib lines.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Spec and stdlib require designated reviewer approval
+/spec/     @ddveloper
+/stdlib/   @ddveloper
+
+# Docs changes are lower friction but still tracked
+/docs/     @ddveloper
