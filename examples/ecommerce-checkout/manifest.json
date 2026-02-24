@@ -1,0 +1,12 @@
+{
+  "sdlVersion": "0.1",
+  "name": "E-Commerce Checkout",
+  "description": "A complete SDL model of a checkout system — from the moment a user clicks Place Order through async payment confirmation and fulfilment. Covers the synchronous happy path, async Stripe webhook confirmation, and the payment failure error path.",
+  "stats": {
+    "nodes": 13,
+    "edges": 16,
+    "triggers": 3,
+    "flows": 3
+  },
+  "tags": ["ecommerce", "checkout", "payments", "async", "saga"]
+}
