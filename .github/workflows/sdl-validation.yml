@@ -1,4 +1,4 @@
-name: SDL Spec Compatibility
+name: Validate SDL Spec Compatibility
 
 on:
   pull_request:
