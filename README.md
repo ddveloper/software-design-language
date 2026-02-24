@@ -144,6 +144,13 @@ software-design-language/
 
 ### Upcoming
 
+- [ ] **v0.6** — Spec governance & versioning
+  - `sdlVersion` field added to all SDL files and enforced by the CLI validator
+  - Validator resolves each file against the schema version it declares, not just latest — old examples stay permanently valid
+  - CODEOWNERS gate on `/spec`: changes require explicit approval from designated reviewers, enforced at the branch level
+  - CI compatibility check on spec PRs: automatically flags breaking changes (removed fields, changed types, new required fields) for human review
+  - Deprecation support: fields can be marked `"deprecated": true` in the schema; the linter emits warnings so SDL authors have a migration window before removal
+
 - [ ] **v0.8** — MCP server
   - Expose SDL as queryable tools: `read_nodes`, `read_flows`, `get_flow_steps`, `find_path`
   - Any MCP-compatible AI (Claude, Cursor, Copilot) can query your architecture mid-task without being given files explicitly
@@ -159,7 +166,7 @@ software-design-language/
   - Engineers reference, fork, and adapt patterns rather than designing from scratch
   - The path from tool to shared vocabulary — how SDL becomes an industry standard
 
-Each milestone makes the next one more valuable: MCP adoption creates demand for keeping SDL current (motivates v0.9), and a healthy ecosystem of up-to-date SDL files is what makes a registry worth contributing to (motivates v1.0).
+Each milestone makes the next one more valuable: versioning gives MCP a stable contract to depend on; MCP adoption creates demand for keeping SDL current (motivates v0.9); and a healthy ecosystem of up-to-date SDL files is what makes a registry worth contributing to (motivates v1.0).
 
 ---
 
