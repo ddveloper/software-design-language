@@ -114,25 +114,53 @@ The reverse generation tool (v0.9) re-derives a draft SDL from static analysis o
 
 ## Project Structure
 
+
 ```
 software-design-language/
-├── spec/               # The language specification (JSON Schema)
-│   ├── node.schema.json
-│   ├── edge.schema.json
-│   ├── trigger.schema.json
-│   └── flow.schema.json
-├── stdlib/             # Standard library of built-in kinds
-│   └── kinds.json
-├── renderer/           # Reference visualization implementation
-├── cli/                # Validate, lint, and diff SDL files
 ├── authoring/          # AI authoring tool (React, runs in Claude.ai)
+│   ├── PROMPT.md
+│   ├── README.md
+│   └── sdl-author.jsx
+├── cli/                # Validate, lint, and diff SDL files
+│   ├── package.json
+│   ├── package-lock.json
+│   └── validate.js
 ├── examples/           # Sample SDL projects
-└── docs/               # Human-readable specification
+│   ├── README.md
+│   └── ecommerce-checkout/
+│       ├── edges.json
+│       ├── flows.json
+│       ├── manifest.json
+│       ├── nodes.json
+│       ├── README.md
+│       └── triggers.json
+├── mcp/                # MCP server (v0.8) — exposes SDL as queryable tools
+│   ├── architecture.ts
+│   ├── index.ts
+│   ├── package.json
+│   ├── README.md
+│   ├── tsconfig.json
+│   └── types.ts
+├── renderer/           # Reference visualization implementation
+│   └── render.js
+├── spec/               # The language specification (JSON Schema)
+│   ├── edge.schema.json
+│   ├── flow.schema.json
+│   ├── node.schema.json
+│   ├── README.md
+│   └── trigger.schema.json
+├── stdlib/             # Standard library of built-in kinds
+│   ├── kinds.json
+│   └── README.md
+├── Contributing.md
+├── LICENSE
+└── README.md
 ```
 
 ---
 
 ## Roadmap
+
 
 ### Completed
 
@@ -141,20 +169,20 @@ software-design-language/
 - [x] **v0.3** — Reference renderer (web-based, SVG)
 - [x] **v0.4** — Standard library of common kinds
 - [x] **v0.5** — AI authoring tool (natural language → SDL, live diagram, drag & drop layout)
+- [x] **v0.6** — Spec governance & versioning
+  - `sdlVersion` field in each example's `manifest.json`, resolved via git tag (`spec-v<version>`) — git history is the source of truth
+  - Validator checks each example against the spec version it declares, not just latest — old examples stay permanently valid
+  - CODEOWNERS gate on `/spec`: changes require explicit approval from designated reviewers, enforced at the branch level
+  - CI compatibility check on spec PRs: automatically flags breaking changes for human review
+  - Deprecation support: fields marked `"deprecated": true` in the schema; linter emits warnings before removal
+- [x] **v0.8** — MCP server
+  - Exposes SDL as queryable tools: `sdl_get_architecture` (full or summary)
+  - Any MCP-compatible AI (Claude, Cursor, Copilot) can query your architecture mid-task without being given files explicitly
+  - SDL_DIR resolution: supports both environment variable and explicit argument
+  - Planned: `sdl_get_flow`, `sdl_find_path`, `sdl_get_node`, `sdl_get_flows_for_node` for richer queries
+
 
 ### Upcoming
-
-- [ ] **v0.6** — Spec governance & versioning
-  - `sdlVersion` field added to all SDL files and enforced by the CLI validator
-  - Validator resolves each file against the schema version it declares, not just latest — old examples stay permanently valid
-  - CODEOWNERS gate on `/spec`: changes require explicit approval from designated reviewers, enforced at the branch level
-  - CI compatibility check on spec PRs: automatically flags breaking changes (removed fields, changed types, new required fields) for human review
-  - Deprecation support: fields can be marked `"deprecated": true` in the schema; the linter emits warnings so SDL authors have a migration window before removal
-
-- [ ] **v0.8** — MCP server
-  - Expose SDL as queryable tools: `read_nodes`, `read_flows`, `get_flow_steps`, `find_path`
-  - Any MCP-compatible AI (Claude, Cursor, Copilot) can query your architecture mid-task without being given files explicitly
-  - The point where SDL becomes useful to AI without any human prompting it to look
 
 - [ ] **v0.9** — Reverse generation (code → SDL)
   - Static analysis of imports, API routes, and event publishers to generate a draft SDL
