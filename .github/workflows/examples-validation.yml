@@ -23,17 +23,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history + tags required — validate.js resolves spec schemas
+          # via git tags (e.g. spec-v0.1). A shallow clone would cause every
+          # example to fall back to working-tree spec/ with a warning.
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: cli/package.json
+          cache-dependency-path: cli/package-lock.json
 
       - name: Install dependencies
         working-directory: cli
-        run: npm install
+        run: npm ci
 
       - name: Run SDL validator
         # Run from repo root so relative paths to spec/ and stdlib/ resolve correctly
