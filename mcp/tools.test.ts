@@ -212,7 +212,7 @@ describe("sdl_get_flow logic", () => {
 
 describe("sdl_get_flows_for_node logic", () => {
 
-  function findFlowsForNode(flows: typeof [] extends never[] ? never : any[], nodeId: string) {
+  function findFlowsForNode(flows: any[], nodeId: string) {
     return flows
       .map((flow: any) => ({
         flow,
