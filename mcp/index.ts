@@ -15,9 +15,9 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { registerArchitectureTools } from "./tools/architecture.js";
-import { registerFlowTools }         from "./tools/flow.js";
-import { registerNodeFlowTools }     from "./tools/node-flows.js";
+import { registerArchitectureTools } from "./tools/architecture";
+import { registerFlowTools }         from "./tools/flow";
+import { registerNodeFlowTools }     from "./tools/node-flows";
 
 const server = new McpServer({
   name:    "sdl-mcp-server",

@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { SdlFlow, SdlNode, SdlEdge } from "../types.js";
+import type { SdlFlow, SdlNode, SdlEdge } from "../types";
 import {
   resolveDir,
   loadArchitecture,
