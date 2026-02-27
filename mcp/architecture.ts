@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { SdlArchitecture } from "../types";
+import type { SdlArchitecture } from "../types.js";
 import {
   resolveDir,
   loadArchitecture,
   guardDir,
   missingFilesWarning,
-} from "../services/sdl-loader.js";
+} from "../sdl-loader.js";
 
 // ── Summary formatter ──────────────────────────────────────────────────────────
 

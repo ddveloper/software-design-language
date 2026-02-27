@@ -1,11 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { SdlFlow } from "../types";
+import type { SdlFlow } from "../types.js";
 import {
   resolveDir,
   loadArchitecture,
   guardDir,
-} from "../services/sdl-loader.js";
+} from "../sdl-loader.js";
 
 // ── Node flow matcher ──────────────────────────────────────────────────────────
 
