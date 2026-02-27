@@ -1,0 +1,17 @@
+[
+  {
+    "id": "gateway-to-order",
+    "protocol": "rest",
+    "source": "api-gateway",
+    "target": "order-service",
+    "style": "sync",
+    "label": "Route to Order Service"
+  },
+  {
+    "id": "order-to-db",
+    "protocol": "database",
+    "source": "order-service",
+    "target": "order-db",
+    "style": "sync"
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "sdlVersion": "0.1",
+  "name": "Simple System",
+  "description": "Minimal SDL fixture for unit tests."
+}

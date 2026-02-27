@@ -1,0 +1,10 @@
+[
+  {
+    "id": "checkout-submit",
+    "kind": "user-interaction",
+    "label": "User Submits Checkout",
+    "source": "api-gateway",
+    "target": "api-gateway",
+    "interaction": { "gesture": "submit", "element": "checkout-form" }
+  }
+]

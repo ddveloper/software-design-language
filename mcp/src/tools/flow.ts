@@ -1,19 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { SdlFlow, SdlNode, SdlEdge } from "../types.js";
+import type { SdlFlow, SdlNode, SdlEdge, SdlArchitecture } from "../types.js";
 import {
   resolveDir,
   loadArchitecture,
   guardDir,
-} from "../sdl-loader.js";
+} from "../services/sdl-loader.js";
 
 // ── Flow step formatter ────────────────────────────────────────────────────────
 
-function formatFlow(
-  flow: SdlFlow,
-  nodes: SdlNode[],
-  edges: SdlEdge[]
-): string {
+function formatFlow(flow: SdlFlow, nodes: SdlNode[], edges: SdlEdge[]): string {
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const edgeMap = new Map(edges.map(e => [e.id, e]));
   const lines: string[] = [];
@@ -27,13 +23,12 @@ function formatFlow(
 
   lines.push(`## Steps`);
   for (const step of flow.steps) {
-    const actor = nodeMap.get(step.actor);
-    const edge  = step.via ? edgeMap.get(step.via) : undefined;
+    const actor    = nodeMap.get(step.actor);
+    const edge     = step.via ? edgeMap.get(step.via) : undefined;
+    const parallel = step.parallel ? " ⟳ parallel" : "";
 
-    const actorLabel = actor ? `${actor.label} (${step.actor})` : step.actor;
-    const parallel   = step.parallel ? " ⟳ parallel" : "";
     lines.push(`\n### Step ${step.id}${parallel}`);
-    lines.push(`**Actor**: ${actorLabel}`);
+    lines.push(`**Actor**: ${actor ? `${actor.label} (${step.actor})` : step.actor}`);
     lines.push(`**Action**: ${step.action}`);
 
     if (edge) {
@@ -56,7 +51,7 @@ function formatFlow(
 
   if (flow.outcome) {
     lines.push(`\n## Outcome`);
-    if (flow.outcome.success)      lines.push(`**Success**: ${flow.outcome.success}`);
+    if (flow.outcome.success) lines.push(`**Success**: ${flow.outcome.success}`);
     if (flow.outcome.side_effects) {
       lines.push(`**Side effects**:`);
       for (const se of flow.outcome.side_effects) lines.push(`  - ${se}`);
@@ -77,7 +72,6 @@ function formatFlow(
 // ── Tool registration ──────────────────────────────────────────────────────────
 
 export function registerFlowTools(server: McpServer): void {
-
   server.registerTool(
     "sdl_get_flow",
     {
@@ -85,58 +79,20 @@ export function registerFlowTools(server: McpServer): void {
       description: `Returns the full step-by-step detail of a named flow, including actor labels,
 edge protocols, error handling, and async continuations.
 
-Use this when you need to understand a specific use case or business process in
-depth — after using sdl_get_architecture to identify which flow is relevant.
+Use this when you need to understand a specific use case in depth — after using
+sdl_get_architecture to identify which flow is relevant.
 
 Args:
-  - flow_id (string): The id of the flow to retrieve (e.g. "place-order", "order-fulfilment").
-    Use sdl_get_architecture first to discover available flow ids.
+  - flow_id (string): The id of the flow (e.g. "place-order"). Use sdl_get_architecture first.
   - sdl_dir (string, optional): Path to SDL directory. Omit if SDL_DIR env var is set.
-  - format ('summary' | 'full'): Output format.
-      'summary' — enriched markdown with actor labels and edge protocols resolved.
-                  Parallel steps are marked. Error handling and outcomes are shown.
-      'full'    — raw flow object as structured JSON.
-
-Returns (summary):
-  Markdown with step-by-step breakdown. Each step shows:
-  - Actor (label and id)
-  - Action
-  - Edge used (protocol, sync/async)
-  - Condition, returns, error handling if present
-  - Async continuations and outcome
-
-Returns (full):
-  The raw SdlFlow object as JSON:
-  {
-    "id": string, "label": string, "trigger": string,
-    "steps": [ { "id", "actor", "action", "via"?, "parallel"?, "error"?, ... } ],
-    "outcome"?: { "success"?, "side_effects"? },
-    "continues_async"?: [ { "flow_ref", "via_event", "condition"? } ]
-  }
-
-Examples:
-  - "Walk me through the checkout flow step by step" → flow_id="place-order"
-  - "What happens when payment fails?" → flow_id="payment-failure"
-  - "How does order fulfilment work?" → flow_id="order-fulfilment"
-
-Error handling:
-  - Returns a list of available flow ids if the requested id is not found`,
+  - format ('summary' | 'full'): 'summary' = enriched markdown, 'full' = raw JSON.`,
 
       inputSchema: z.object({
-        flow_id: z
-          .string()
-          .min(1)
-          .describe(
-            'The id of the flow to retrieve (e.g. "place-order", "order-fulfilment"). ' +
-            "Use sdl_get_architecture to discover available flow ids."
-          ),
-        sdl_dir: z
-          .string()
-          .optional()
+        flow_id: z.string().min(1)
+          .describe('Flow id to retrieve (e.g. "place-order"). Use sdl_get_architecture to list ids.'),
+        sdl_dir: z.string().optional()
           .describe("Path to SDL directory. Omit if SDL_DIR env var is set."),
-        format: z
-          .enum(["summary", "full"])
-          .default("summary")
+        format: z.enum(["summary", "full"]).default("summary")
           .describe('"summary" for enriched markdown, "full" for raw JSON.'),
       }),
 
@@ -158,7 +114,7 @@ Error handling:
       const guard = guardDir(dir);
       if (guard) return guard;
 
-      let arch;
+      let arch: SdlArchitecture;
       try {
         arch = loadArchitecture(dir);
       } catch (e) {
@@ -168,16 +124,14 @@ Error handling:
         };
       }
 
-      const flow = arch.flows.find(f => f.id === flow_id);
+      const flow = arch.flows.find((f: SdlFlow) => f.id === flow_id);
 
       if (!flow) {
-        const available = arch.flows.map(f => `  - ${f.id}: ${f.label}`).join("\n");
+        const available = arch.flows.map((f: SdlFlow) => `  - ${f.id}: ${f.label}`).join("\n");
         return {
           content: [{
             type: "text",
-            text:
-              `Flow "${flow_id}" not found.\n\n` +
-              `Available flows in ${dir}:\n${available || "  (none)"}`,
+            text: `Flow "${flow_id}" not found.\n\nAvailable flows in ${dir}:\n${available || "  (none)"}`,
           }],
           isError: true,
         };
@@ -185,14 +139,12 @@ Error handling:
 
       if (format === "full") {
         return {
-          content:          [{ type: "text", text: JSON.stringify(flow, null, 2) }],
+          content:           [{ type: "text", text: JSON.stringify(flow, null, 2) }],
           structuredContent: flow,
         };
       }
 
-      return {
-        content: [{ type: "text", text: formatFlow(flow, arch.nodes, arch.edges) }],
-      };
+      return { content: [{ type: "text", text: formatFlow(flow, arch.nodes, arch.edges) }] };
     }
   );
 }

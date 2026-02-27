@@ -6,7 +6,7 @@ import {
   loadArchitecture,
   guardDir,
   missingFilesWarning,
-} from "../sdl-loader.js";
+} from "../services/sdl-loader.js";
 
 // ── Summary formatter ──────────────────────────────────────────────────────────
 
@@ -30,9 +30,7 @@ function formatSummary(arch: SdlArchitecture, dir: string): string {
 
   if (nodes.length > 0) {
     lines.push(`## Nodes`);
-    for (const n of nodes) {
-      lines.push(`- **${n.id}** (${n.kind}): ${n.label}`);
-    }
+    for (const n of nodes) lines.push(`- **${n.id}** (${n.kind}): ${n.label}`);
     lines.push("");
   }
 
@@ -46,9 +44,7 @@ function formatSummary(arch: SdlArchitecture, dir: string): string {
 
   if (triggers.length > 0) {
     lines.push(`## Triggers`);
-    for (const t of triggers) {
-      lines.push(`- **${t.id}** (${t.kind}): ${t.label}`);
-    }
+    for (const t of triggers) lines.push(`- **${t.id}** (${t.kind}): ${t.label}`);
   }
 
   return lines.join("\n");
@@ -57,13 +53,11 @@ function formatSummary(arch: SdlArchitecture, dir: string): string {
 // ── Tool registration ──────────────────────────────────────────────────────────
 
 export function registerArchitectureTools(server: McpServer): void {
-
   server.registerTool(
     "sdl_get_architecture",
     {
       title: "Get SDL Architecture",
-      description: `Returns the complete SDL architecture — all nodes, edges, triggers, and flows —
-from a directory of SDL files.
+      description: `Returns the complete SDL architecture — all nodes, edges, triggers, and flows.
 
 Call this at the start of any task involving system design, cross-service changes,
 or questions about how components connect. For focused queries on a specific flow
@@ -75,22 +69,12 @@ SDL directory resolution (in order):
 
 Args:
   - sdl_dir (string, optional): Path to directory containing SDL files.
-    Omit if SDL_DIR is set in the environment.
-  - format ('summary' | 'full'): Output detail level.
-      'summary' — markdown overview: node list, flow list, counts. Use for orientation.
-      'full'    — complete SDL as structured JSON. Use for step-level or field-level detail.
-
-Returns (summary): Markdown with nodes, flows, triggers, and counts.
-Returns (full): { manifest, nodes, edges, triggers, flows } as structured JSON.`,
+  - format ('summary' | 'full'): 'summary' = markdown overview, 'full' = structured JSON.`,
 
       inputSchema: z.object({
-        sdl_dir: z
-          .string()
-          .optional()
-          .describe("Path to directory containing SDL files. Omit if SDL_DIR env var is set."),
-        format: z
-          .enum(["summary", "full"])
-          .default("summary")
+        sdl_dir: z.string().optional()
+          .describe("Path to SDL directory. Omit if SDL_DIR env var is set."),
+        format: z.enum(["summary", "full"]).default("summary")
           .describe('"summary" for orientation, "full" for complete structured JSON.'),
       }),
 
@@ -137,7 +121,7 @@ Returns (full): { manifest, nodes, edges, triggers, flows } as structured JSON.`
       };
 
       return {
-        content:          [{ type: "text", text: JSON.stringify(output, null, 2) + warnings }],
+        content:           [{ type: "text", text: JSON.stringify(output, null, 2) + warnings }],
         structuredContent: output,
       };
     }

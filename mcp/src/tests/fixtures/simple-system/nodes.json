@@ -1,0 +1,6 @@
+[
+  { "id": "api-gateway",   "kind": "gateway",      "label": "API Gateway"   },
+  { "id": "order-service", "kind": "microservice",  "label": "Order Service" },
+  { "id": "order-db",      "kind": "database",      "label": "Order DB"      },
+  { "id": "unused-node",   "kind": "microservice",  "label": "Unused Node"   }
+]

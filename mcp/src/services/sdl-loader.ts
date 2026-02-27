@@ -9,13 +9,6 @@ import type {
   SdlManifest,
 } from "../types.js";
 
-// ── SDL_DIR resolution ─────────────────────────────────────────────────────────
-//
-// Resolution order:
-//   1. sdl_dir argument passed explicitly in the tool call
-//   2. SDL_DIR environment variable (set once in MCP client config)
-//   3. Neither → actionable error with setup instructions
-
 export function resolveDir(sdlDirArg: string | undefined): { dir: string } | { error: string } {
   const raw = sdlDirArg?.trim() || process.env.SDL_DIR?.trim();
 
@@ -38,8 +31,6 @@ export function resolveDir(sdlDirArg: string | undefined): { dir: string } | { e
   return { dir: resolve(raw) };
 }
 
-// ── File loader ────────────────────────────────────────────────────────────────
-
 export function loadJsonFile<T>(filePath: string): T | null {
   if (!existsSync(filePath)) return null;
   try {
@@ -54,18 +45,16 @@ export function loadJsonFile<T>(filePath: string): T | null {
 export function loadArchitecture(dir: string): SdlArchitecture {
   return {
     manifest: loadJsonFile<SdlManifest>(join(dir, "manifest.json")),
-    nodes:    loadJsonFile<SdlNode[]>(join(dir,    "nodes.json"))    ?? [],
-    edges:    loadJsonFile<SdlEdge[]>(join(dir,    "edges.json"))    ?? [],
-    triggers: loadJsonFile<SdlTrigger[]>(join(dir, "triggers.json")) ?? [],
-    flows:    loadJsonFile<SdlFlow[]>(join(dir,    "flows.json"))    ?? [],
+    nodes:    loadJsonFile<SdlNode[]>(join(dir,    "nodes.json"))       ?? [],
+    edges:    loadJsonFile<SdlEdge[]>(join(dir,    "edges.json"))       ?? [],
+    triggers: loadJsonFile<SdlTrigger[]>(join(dir, "triggers.json"))    ?? [],
+    flows:    loadJsonFile<SdlFlow[]>(join(dir,    "flows.json"))       ?? [],
   };
 }
 
-// ── Directory guard ────────────────────────────────────────────────────────────
-// Returns an MCP error response if the directory doesn't exist.
-// Returns null if the directory is valid and the caller can proceed.
-
-export function guardDir(dir: string): { content: [{ type: "text"; text: string }]; isError: true } | null {
+export function guardDir(
+  dir: string
+): { content: [{ type: "text"; text: string }]; isError: true } | null {
   if (!existsSync(dir)) {
     return {
       content: [{
@@ -80,8 +69,6 @@ export function guardDir(dir: string): { content: [{ type: "text"; text: string 
   }
   return null;
 }
-
-// ── Missing file warnings ──────────────────────────────────────────────────────
 
 export function missingFilesWarning(dir: string): string {
   const expected = ["manifest.json", "nodes.json", "edges.json", "triggers.json", "flows.json"];
