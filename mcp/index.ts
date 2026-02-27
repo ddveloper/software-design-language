@@ -2,54 +2,36 @@
 /**
  * SDL MCP Server — v0.8
  *
- * Exposes SDL architecture files as queryable tools for MCP-compatible AI assistants
- * (Claude Desktop, Cursor, Copilot, etc.).
+ * Exposes SDL architecture files as queryable tools for MCP-compatible AI assistants.
+ * Transport: stdio (local, runs as subprocess of the AI client)
  *
- * Transport: stdio (local tool, runs as a subprocess of the AI client)
+ * Tools:
+ *   sdl_get_architecture    — full architecture overview (all nodes, edges, triggers, flows)
+ *   sdl_get_flow            — step-by-step detail for a specific flow by id
+ *   sdl_get_flows_for_node  — all flows where a given node appears as an actor
  *
- * Usage — Claude Desktop (claude_desktop_config.json):
- *   {
- *     "mcpServers": {
- *       "sdl": {
- *         "command": "node",
- *         "args": ["/path/to/repo/mcp/dist/index.js"],
- *         "cwd": "/path/to/repo"
- *       }
- *     }
- *   }
- *
- * Usage — Cursor (.cursor/mcp.json):
- *   {
- *     "mcpServers": {
- *       "sdl": {
- *         "command": "node",
- *         "args": ["mcp/dist/index.js"]
- *       }
- *     }
- *   }
- *
- * Build first:
- *   cd mcp && npm install && npm run build
+ * Setup: see mcp/README.md
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerArchitectureTools } from "./tools/architecture.js";
+import { registerFlowTools }         from "./tools/flow.js";
+import { registerNodeFlowTools }     from "./tools/node-flows.js";
 
 const server = new McpServer({
-  name: "sdl-mcp-server",
+  name:    "sdl-mcp-server",
   version: "0.8.0",
 });
 
-// Register all tools
 registerArchitectureTools(server);
+registerFlowTools(server);
+registerNodeFlowTools(server);
 
-// Connect via stdio — the AI client manages the process lifecycle
 async function run(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  // Log to stderr only — stdout is reserved for the MCP protocol
-  console.error("SDL MCP server running (stdio)");
+  console.error("SDL MCP server v0.8.0 running (stdio)");
 }
 
 run().catch((error: unknown) => {

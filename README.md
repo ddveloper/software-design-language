@@ -1,16 +1,30 @@
 # Software Design Language (SDL)
 
-> A language for expressing software system design as structured, machine-readable data — bridging human intent and AI implementation.
+> The design contract layer for software systems — a structured, machine-readable language that lets humans and AI agents coordinate on architecture with precision and accountability.
 
 ---
 
-## Why SDL?
+## The Problem SDL Solves
 
-Software engineering has standardized **implementation** through programming languages, type systems, and APIs. But **design** — the intent, structure, and behavior of a system before a line of code is written — is still expressed in whiteboards, slide decks, and natural language prose.
+Software development is undergoing a fundamental shift. AI is taking on more of the implementation work — writing code, reviewing PRs, deploying services. But as AI capability grows, a new coordination problem emerges: **how do the actors in a software system — human or AI — agree on what is being built, communicate design decisions unambiguously, and maintain an auditable record of architectural intent?**
 
-This gap is becoming critical. As AI takes on more of the implementation work, the bottleneck shifts up the abstraction stack. The conversation between humans and AI about *what to build* needs to be as precise and verifiable as the code that gets built.
+Natural language is too ambiguous. Code is too late — by the time a decision is in code, it has already been acted on. Whiteboards and slide decks are invisible to AI entirely.
 
-SDL is an attempt to define that interface: a structured, human-readable, machine-processable language for system design.
+SDL fills this gap. It is a structured, human-readable, machine-processable language for expressing system design — the contract layer that sits above implementation and below intent.
+
+---
+
+## Why This Matters More as AI Gets More Capable
+
+SDL was built for today, but designed for where software development is going.
+
+**Today**: Engineers use SDL to give AI coding assistants precise architectural context — eliminating the re-explanation overhead of every new prompt, and grounding AI-generated code in agreed design decisions.
+
+**Near term**: As AI agents take on larger, more autonomous implementation tasks, SDL becomes the shared vocabulary they coordinate around. An AI architect writes SDL. An AI developer reads it, implements against it, and flags divergence. The MCP server is how any agent queries the current agreed design mid-task.
+
+**Long term**: In a world where AI architects direct AI developers across large systems, SDL is the protocol through which design decisions are communicated, recorded, and audited. The actors change; the need for a structured design contract does not.
+
+The argument for SDL is not that AI needs help understanding architecture. It is that **design intent cannot be derived from code alone**, that **coordination between actors requires a shared language**, and that **accountability requires an auditable record of what was decided and why**. These hold regardless of how capable the actors become.
 
 ---
 
@@ -89,26 +103,25 @@ SDL is not a deployment specification (that's Terraform / Kubernetes). It's not 
 | Machine-readable first | Partial | No | Partial | ✅ |
 | Flow / use-case native | No | Partial | ✅ | ✅ |
 | AI-context ready | No | No | No | ✅ |
+| Agent-to-agent coordination | No | No | No | ✅ |
 | Open, extensible schema | No | No | No | ✅ |
 | Presentation fully separated | Partial | No | No | ✅ |
 
 ---
 
-## How Engineers Use SDL
-
-SDL is designed to fit into daily AI-assisted engineering work, not just project kickoffs.
+## How SDL Is Used Today
 
 **1. Describe → Generate**
 Open the [authoring tool](./authoring/README.md), describe your system in plain language, and receive all four SDL files plus a live diagram. Refine conversationally: *"make the payment call async"*, *"add a Redis cache in front of auth"*.
 
 **2. Commit SDL alongside code**
-SDL lives in the repo like `openapi.yaml` or `package.json`. It's the shared vocabulary for the team and the primary context source for any AI working on the codebase.
+SDL lives in the repo like `openapi.yaml` or `package.json`. It is the shared vocabulary for the team and the primary context source for any AI working on the codebase — human-authored design intent that code alone cannot express.
 
 **3. AI queries SDL mid-task**
-Via the MCP server (v0.8), AI coding assistants can call `get_flow_steps("checkout")` or `find_path("user", "database")` and receive precise, structured answers — without being handed the files manually. Engineers stop re-explaining architecture in every prompt.
+Via the MCP server (v0.8), AI coding assistants can call `sdl_get_architecture` and receive the full architecture as structured data — without being handed files manually. Engineers stop re-explaining architecture in every prompt.
 
 **4. SDL stays current**
-The reverse generation tool (v0.9) re-derives a draft SDL from static analysis of the codebase — imports, API routes, event publishers. Engineers correct the drift rather than maintain SDL by hand.
+The reverse generation tool (v0.9) re-derives a draft SDL from static analysis of the codebase — imports, API routes, event publishers. Engineers correct the drift rather than maintain SDL by hand. Over time, this loop can be fully automated.
 
 ---
 
@@ -170,8 +183,8 @@ software-design-language/
 - [x] **v0.4** — Standard library of common kinds
 - [x] **v0.5** — AI authoring tool (natural language → SDL, live diagram, drag & drop layout)
 - [x] **v0.6** — Spec governance & versioning
-  - `sdlVersion` field in each example's `manifest.json`, resolved via git tag (`spec-v<version>`) — git history is the source of truth
-  - Validator checks each example against the spec version it declares, not just latest — old examples stay permanently valid
+  - `sdlVersion` field in `manifest.json` per example, resolved via git tag (`spec-v<version>`) — git history is the source of truth, no files copied
+  - Validator resolves each example against the spec version it declares, not just latest — old examples stay permanently valid
   - CODEOWNERS gate on `/spec`: changes require explicit approval from designated reviewers, enforced at the branch level
   - CI compatibility check on spec PRs: automatically flags breaking changes for human review
   - Deprecation support: fields marked `"deprecated": true` in the schema; linter emits warnings before removal
@@ -188,13 +201,14 @@ software-design-language/
   - Static analysis of imports, API routes, and event publishers to generate a draft SDL
   - Engineers correct the draft rather than write from scratch
   - Closes the keep-current loop: code changes → re-derive SDL → diff → update
+  - The foundation for fully automated SDL maintenance in agentic workflows
 
 - [ ] **v1.0** — SDL Registry
   - Public registry of SDL schemas for common architecture patterns
-  - Engineers reference, fork, and adapt patterns rather than designing from scratch
-  - The path from tool to shared vocabulary — how SDL becomes an industry standard
+  - Any actor — human or AI — can reference, fork, and adapt proven patterns
+  - The path from project tool to shared industry vocabulary
 
-Each milestone makes the next one more valuable: versioning gives MCP a stable contract to depend on; MCP adoption creates demand for keeping SDL current (motivates v0.9); and a healthy ecosystem of up-to-date SDL files is what makes a registry worth contributing to (motivates v1.0).
+Each milestone makes the next one more valuable: versioning gives MCP a stable contract to depend on; MCP adoption creates demand for keeping SDL current (motivates v0.9); automated SDL maintenance makes a shared registry worth contributing to (motivates v1.0). The long arc is SDL becoming coordination infrastructure for software development — not just a tool for human engineers.
 
 ---
 

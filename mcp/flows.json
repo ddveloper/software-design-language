@@ -1,0 +1,22 @@
+[
+  {
+    "id": "place-order",
+    "label": "User Places an Order",
+    "trigger": "checkout-submit",
+    "steps": [
+      { "id": "1.0", "actor": "api-gateway",   "action": "authenticate request" },
+      { "id": "2.0", "actor": "api-gateway",   "action": "route to order service", "via": "gateway-to-order" },
+      { "id": "3.0", "actor": "order-service", "action": "persist order",           "via": "order-to-db"      }
+    ],
+    "outcome": { "success": "Order persisted in DB." }
+  },
+  {
+    "id": "cancel-order",
+    "label": "User Cancels an Order",
+    "trigger": "checkout-submit",
+    "steps": [
+      { "id": "1.0", "actor": "api-gateway",   "action": "authenticate request" },
+      { "id": "2.0", "actor": "order-service", "action": "mark order cancelled",   "via": "order-to-db" }
+    ]
+  }
+]

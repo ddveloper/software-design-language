@@ -1,76 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { readFileSync, existsSync } from "fs";
-import { join, resolve } from "path";
 import { z } from "zod";
-import type {
-  SdlArchitecture,
-  SdlNode,
-  SdlEdge,
-  SdlTrigger,
-  SdlFlow,
-  SdlManifest,
-} from "../types.js";
-
-// ── SDL_DIR resolution ─────────────────────────────────────────────────────────
-//
-// The tool resolves the SDL directory in this order:
-//   1. sdl_dir argument passed by the AI in the tool call
-//   2. SDL_DIR environment variable — set this in the MCP client config
-//      so the AI never needs to pass it explicitly
-//   3. Neither provided → return an actionable error telling the caller
-//      exactly how to fix it
-//
-// This means the tool works in two modes:
-//   - Configured mode: SDL_DIR is set in the client config. The AI just calls
-//     sdl_get_architecture() with no arguments and gets the right data.
-//   - Explicit mode: the AI or user passes sdl_dir directly. Useful when
-//     working across multiple SDL sources in the same session.
-
-function resolveDir(sdlDirArg: string | undefined): { dir: string } | { error: string } {
-  const raw = sdlDirArg?.trim() || process.env.SDL_DIR?.trim();
-
-  if (!raw) {
-    return {
-      error:
-        "SDL directory not specified. Provide it in one of two ways:\n\n" +
-        "  1. Pass sdl_dir in the tool call:\n" +
-        '     sdl_get_architecture({ sdl_dir: "/path/to/your/sdl/files" })\n\n' +
-        "  2. Set the SDL_DIR environment variable in your MCP client config\n" +
-        "     so the AI never needs to pass it explicitly:\n\n" +
-        "     Claude Desktop (claude_desktop_config.json):\n" +
-        '       "env": { "SDL_DIR": "/path/to/your/sdl/files" }\n\n' +
-        "     Cursor (.cursor/mcp.json):\n" +
-        '       "env": { "SDL_DIR": "/path/to/your/sdl/files" }\n\n' +
-        "  SDL_DIR should point to a directory containing:\n" +
-        "    nodes.json, edges.json, triggers.json, flows.json, manifest.json",
-    };
-  }
-
-  return { dir: resolve(raw) };
-}
-
-// ── SDL file loader ────────────────────────────────────────────────────────────
-
-function loadJsonFile<T>(filePath: string): T | null {
-  if (!existsSync(filePath)) return null;
-  try {
-    return JSON.parse(readFileSync(filePath, "utf8")) as T;
-  } catch (e) {
-    throw new Error(
-      `Failed to parse ${filePath}: ${e instanceof Error ? e.message : String(e)}`
-    );
-  }
-}
-
-function loadArchitecture(dir: string): SdlArchitecture {
-  const manifest = loadJsonFile<SdlManifest>(join(dir, "manifest.json"));
-  const nodes    = loadJsonFile<SdlNode[]>(join(dir, "nodes.json"))       ?? [];
-  const edges    = loadJsonFile<SdlEdge[]>(join(dir, "edges.json"))       ?? [];
-  const triggers = loadJsonFile<SdlTrigger[]>(join(dir, "triggers.json")) ?? [];
-  const flows    = loadJsonFile<SdlFlow[]>(join(dir, "flows.json"))       ?? [];
-
-  return { manifest, nodes, edges, triggers, flows };
-}
+import type { SdlArchitecture } from "../types.js";
+import {
+  resolveDir,
+  loadArchitecture,
+  guardDir,
+  missingFilesWarning,
+} from "../services/sdl-loader.js";
 
 // ── Summary formatter ──────────────────────────────────────────────────────────
 
@@ -129,142 +65,79 @@ export function registerArchitectureTools(server: McpServer): void {
       description: `Returns the complete SDL architecture — all nodes, edges, triggers, and flows —
 from a directory of SDL files.
 
-Call this tool at the start of any task that involves:
-- Understanding how a system is structured
-- Identifying which services exist and how they communicate
-- Understanding the sequence of steps in a use case or business process
-- Planning a cross-service change
-- Answering questions about system design or data flow
+Call this at the start of any task involving system design, cross-service changes,
+or questions about how components connect. For focused queries on a specific flow
+or node, use sdl_get_flow or sdl_get_flows_for_node instead.
 
 SDL directory resolution (in order):
   1. sdl_dir argument — pass explicitly when working with a specific source
-  2. SDL_DIR environment variable — set in the MCP client config so the AI
-     never needs to pass it. This is the recommended setup for day-to-day use.
-  3. Neither provided — the tool returns an error with setup instructions.
+  2. SDL_DIR environment variable — set in MCP client config for zero-argument use
 
 Args:
-  - sdl_dir (string, optional): Absolute or relative path to the directory
-    containing SDL files (nodes.json, edges.json, triggers.json, flows.json).
+  - sdl_dir (string, optional): Path to directory containing SDL files.
     Omit if SDL_DIR is set in the environment.
-    Examples:
-      "/home/user/projects/my-service/sdl"
-      "../architecture/services/checkout"
-  - format ('summary' | 'full'): Output format.
-      'summary' — concise markdown overview: node list, flow list, counts.
-                  Use for orientation or when context window space is limited.
-      'full'    — complete SDL as structured JSON. Use when you need step-level
-                  detail, edge protocols, trigger definitions, or any field-level data.
+  - format ('summary' | 'full'): Output detail level.
+      'summary' — markdown overview: node list, flow list, counts. Use for orientation.
+      'full'    — complete SDL as structured JSON. Use for step-level or field-level detail.
 
-Returns (summary):
-  Markdown with node list (id, kind, label), flow list (id, label, step count,
-  trigger), and counts.
-
-Returns (full):
-  Structured JSON:
-  {
-    "manifest": { "sdlVersion": string, "name"?: string, "description"?: string } | null,
-    "nodes":    [ { "id", "kind", "label", "responsibilities"?, "exposes"?, ... } ],
-    "edges":    [ { "id", "protocol", "source", "target", "style"?, "auth"?, ... } ],
-    "triggers": [ { "id", "kind", "label", "source"?, "target"?, ... } ],
-    "flows":    [ { "id", "label", "trigger", "steps": [ { "id", "actor", "action", "via"? } ] } ]
-  }
-
-Examples:
-  - "Explain the checkout flow"
-      → call with format="full", read the flows array
-  - "What services exist in this system?"
-      → call with format="summary"
-  - "How does the frontend reach the database?"
-      → call with format="full", trace source/target through edges`,
+Returns (summary): Markdown with nodes, flows, triggers, and counts.
+Returns (full): { manifest, nodes, edges, triggers, flows } as structured JSON.`,
 
       inputSchema: z.object({
         sdl_dir: z
           .string()
           .optional()
-          .describe(
-            "Absolute or relative path to the directory containing SDL files " +
-            "(nodes.json, edges.json, triggers.json, flows.json, manifest.json). " +
-            "Omit if SDL_DIR environment variable is set. " +
-            'Examples: "/home/user/my-repo/sdl", "../checkout-service/sdl"'
-          ),
+          .describe("Path to directory containing SDL files. Omit if SDL_DIR env var is set."),
         format: z
           .enum(["summary", "full"])
           .default("summary")
-          .describe(
-            '"summary" returns a concise markdown overview (use for orientation). ' +
-            '"full" returns the complete SDL as structured JSON (use for detail).'
-          ),
+          .describe('"summary" for orientation, "full" for complete structured JSON.'),
       }),
 
       annotations: {
-        readOnlyHint: true,
+        readOnlyHint:    true,
         destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
+        idempotentHint:  true,
+        openWorldHint:   false,
       },
     },
 
     async ({ sdl_dir, format }) => {
-      // Resolve directory from argument or environment
       const resolved = resolveDir(sdl_dir);
       if ("error" in resolved) {
-        return {
-          content: [{ type: "text", text: resolved.error }],
-          isError: true,
-        };
+        return { content: [{ type: "text", text: resolved.error }], isError: true };
       }
 
       const { dir } = resolved;
-
-      if (!existsSync(dir)) {
-        return {
-          content: [{
-            type: "text",
-            text:
-              `Error: SDL directory not found: ${dir}\n\n` +
-              `Check that the path is correct and the directory exists.\n` +
-              `It should contain: nodes.json, edges.json, triggers.json, flows.json`,
-          }],
-          isError: true,
-        };
-      }
+      const guard = guardDir(dir);
+      if (guard) return guard;
 
       let arch: SdlArchitecture;
       try {
         arch = loadArchitecture(dir);
       } catch (e) {
         return {
-          content: [{
-            type: "text",
-            text: `Error loading SDL files: ${e instanceof Error ? e.message : String(e)}`,
-          }],
+          content: [{ type: "text", text: `Error loading SDL files: ${e instanceof Error ? e.message : String(e)}` }],
           isError: true,
         };
       }
 
-      // Warn about missing files but don't fail — partial SDL is still useful
-      const expectedFiles = ["manifest.json", "nodes.json", "edges.json", "triggers.json", "flows.json"];
-      const missing = expectedFiles.filter(f => !existsSync(join(dir, f)));
-      const warnings = missing.length > 0
-        ? `\n\n> ⚠️ Missing files in ${dir}: ${missing.join(", ")}`
-        : "";
+      const warnings = missingFilesWarning(dir);
 
       if (format === "summary") {
-        return {
-          content: [{ type: "text", text: formatSummary(arch, dir) + warnings }],
-        };
+        return { content: [{ type: "text", text: formatSummary(arch, dir) + warnings }] };
       }
 
       const output = {
-        manifest:  arch.manifest,
-        nodes:     arch.nodes,
-        edges:     arch.edges,
-        triggers:  arch.triggers,
-        flows:     arch.flows,
+        manifest: arch.manifest,
+        nodes:    arch.nodes,
+        edges:    arch.edges,
+        triggers: arch.triggers,
+        flows:    arch.flows,
       };
 
       return {
-        content: [{ type: "text", text: JSON.stringify(output, null, 2) + warnings }],
+        content:          [{ type: "text", text: JSON.stringify(output, null, 2) + warnings }],
         structuredContent: output,
       };
     }
